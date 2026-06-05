@@ -18,21 +18,27 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
-import net.ccbluex.liquidbounce.config.types.group.ValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
+import net.ccbluex.liquidbounce.event.events.RefreshArrayListEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleManager
+import net.ccbluex.liquidbounce.render.drawRoundedRect
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.client.mc
+import net.minecraft.util.Mth
 
 /**
- * Lightweight Java-side ArrayList HUD. Renders the names of all enabled,
- * in-game modules on the right side of the screen, ordered by display width
- * (longest at the bottom by default).
+ * Vanilla-style ArrayList HUD.
+ *
+ * Renders the names of all enabled, in-game modules on the configured side
+ * of the screen. Each module row fades in/out with a configurable duration.
+ * Modules can be hidden individually via the internal [hidden] set (driven
+ * by ClickGUI in a future iteration).
  */
+@Suppress("MagicNumber")
 object ModuleArrayList : ClientModule(
     name = "ArrayList",
     category = ModuleCategories.RENDER,
@@ -40,72 +46,183 @@ object ModuleArrayList : ClientModule(
 ) {
 
     private val background by boolean("Background", true)
+    private val outline by boolean("Outline", true)
+    private val shadow by boolean("Shadow", true)
     private val side by enumChoice("Side", Side.RIGHT)
+    private val sort by enumChoice("Sort", Sort.WIDTH)
     private val upperCase by boolean("UpperCase", false)
     private val textColor by color("Color", Color4b(255, 255, 255, 255))
+    private val tagColor by color("TagColor", Color4b(170, 170, 170, 255))
     private val backgroundColor by color("BackgroundColor", Color4b(0, 0, 0, 110))
     private val outlineColor by color("OutlineColor", Color4b(0, 0, 0, 200))
+    private val yOffset by int("YOffset", 4, 0..200)
+    private val lineHeight by int("LineHeight", 11, 8..24)
+    private val fadeAnimation by boolean("FadeAnimation", true)
+    private val fadeDuration by int("FadeDuration", 200, 50..1000)
+    private val showTags by boolean("ShowTags", true)
 
-    init {
-        tree(Colors)
+    private enum class Side(override val tag: String) : Tagged {
+        LEFT("left"),
+        RIGHT("right");
+
+        override fun toString() = tag
     }
 
-    private object Colors : ValueGroup("Colors") {
-        val enableColor by color("EnableColor", Color4b(140, 200, 255, 255))
-        val visibleColor by color("VisibleColor", Color4b(255, 255, 255, 255))
+    private enum class Sort(override val tag: String) : Tagged {
+        WIDTH("width"),
+        ALPHABET("alphabet");
+
+        override fun toString() = tag
+    }
+
+    /**
+     * Modules that should be excluded from the array list. Public so that
+     * future ClickGUI or commands can toggle entries.
+     */
+    val arrayListHidden: MutableSet<ClientModule> = mutableSetOf()
+
+    /** Per-module fade alpha. 0 = fully hidden, 1 = fully visible. */
+    private val fadeState: MutableMap<ClientModule, Float> = mutableMapOf()
+
+    private var lastFrameTime: Long = System.nanoTime()
+
+    @Suppress("unused")
+    private val refreshHandler = handler<RefreshArrayListEvent> {
+        // Force a frame update so newly-bound tags become visible
+        fadeState.keys.toList()
     }
 
     @Suppress("unused")
     private val renderHandler = handler<OverlayRenderEvent> { event ->
         val context = event.context
-        val fontRenderer = mc.font
+        val font = mc.font
+        val now = System.nanoTime()
+        val dtSec = ((now - lastFrameTime).coerceAtLeast(0L) / 1_000_000_000.0).toFloat()
+        lastFrameTime = now
 
         val modules = ModuleManager
-            .filter { it.running && it !== this }
-            .sortedByDescending { fontRenderer.width(it.displayName()) }
+            .filter { it !== this && !arrayListHidden.contains(it) }
+            .toList()
         if (modules.isEmpty()) return@handler
 
+        // Update fade state
+        if (fadeAnimation) {
+            val step = if (fadeDuration > 0) dtSec / (fadeDuration / 1000f) else 1f
+            for (m in modules) {
+                val target = if (m.running) 1f else 0f
+                val current = fadeState[m] ?: target
+                val next = if (current < target) {
+                    Mth.lerp(step.coerceIn(0f, 1f), current, target).coerceAtMost(target)
+                } else if (current > target) {
+                    Mth.lerp(step.coerceIn(0f, 1f), current, target).coerceAtLeast(target)
+                } else current
+                fadeState[m] = next
+            }
+            // Remove fully-faded entries
+            fadeState.entries.removeAll { (m, v) -> v <= 0.001f && !m.running }
+        } else {
+            for (m in modules) {
+                fadeState[m] = if (m.running) 1f else 0f
+            }
+            fadeState.keys.retainAll(modules)
+        }
+
+        val visible = modules.filter { (fadeState[it] ?: 0f) > 0.01f && it.running }
+
+        val sorted = when (sort) {
+            Sort.WIDTH -> visible.sortedByDescending { font.width(displayNameWithTag(it)) }
+            Sort.ALPHABET -> visible.sortedBy { displayNameWithTag(it).lowercase() }
+        }
+        if (sorted.isEmpty()) return@handler
+
         val screenWidth = context.guiWidth()
-        val screenHeight = context.guiHeight()
-        val lineHeight = fontRenderer.lineHeight
-        var y = 4
         val margin = 4
+        var y = yOffset
 
-        for (module in modules) {
-            val name = module.displayName()
-            val textWidth = fontRenderer.width(name)
-            val lineY = y
-            val xRight = screenWidth - textWidth - margin
-            val xLeft = margin
-
-            if (background) {
-                val bgX1 = if (side == Side.RIGHT) xRight - 3 else xLeft - 3
-                val bgX2 = if (side == Side.RIGHT) screenWidth else xLeft + textWidth + 3
-                context.fill(bgX1, lineY - 1, bgX2, lineY + lineHeight - 1, backgroundColor.argb)
+        for (module in sorted) {
+            val alpha = (fadeState[module] ?: 1f).coerceIn(0f, 1f)
+            val text = displayNameWithTag(module)
+            val tag = if (showTags) module.tag else null
+            val fullText = if (tag != null) "$text $tag" else text
+            val textWidth = font.width(fullText)
+            val xText: Int
+            val xBgStart: Int
+            val xBgEnd: Int
+            when (side) {
+                Side.RIGHT -> {
+                    xText = screenWidth - textWidth - margin
+                    xBgStart = xText - 3
+                    xBgEnd = screenWidth
+                }
+                Side.LEFT -> {
+                    xText = margin
+                    xBgStart = xText - 3
+                    xBgEnd = xText + textWidth + 3
+                }
             }
 
+            val bgAlpha = (backgroundColor.a * alpha).toInt().coerceIn(0, 255)
+            val outAlpha = (outlineColor.a * alpha).toInt().coerceIn(0, 255)
+            val textAlpha = (textColor.a * alpha).toInt().coerceIn(0, 255)
+            val tagAlpha = (tagColor.a * alpha).toInt().coerceIn(0, 255)
+
+            if (background) {
+                with(context) {
+                    drawRoundedRect(
+                        xBgStart.toFloat(), y.toFloat() - 1f,
+                        xBgEnd.toFloat(), (y + lineHeight - 1).toFloat(), 2f,
+                        fillColor = Color4b(
+                            backgroundColor.r, backgroundColor.g, backgroundColor.b, bgAlpha
+                        ),
+                    )
+                }
+            }
+            if (outline) {
+                with(context) {
+                    drawRoundedRect(
+                        xBgStart.toFloat(), y.toFloat() - 1f,
+                        xBgEnd.toFloat(), (y + lineHeight - 1).toFloat(), 2f,
+                        fillColor = Color4b.TRANSPARENT,
+                        outlineColor = Color4b(
+                            outlineColor.r, outlineColor.g, outlineColor.b, outAlpha
+                        ),
+                        outlineWidth = 1.0f,
+                    )
+                }
+            }
+
+            // Draw name
             context.text(
-                fontRenderer, name,
-                if (side == Side.RIGHT) xRight else xLeft,
-                lineY,
-                textColor.argb,
-                true,
+                font, text,
+                xText, y,
+                (textColor.r shl 24) or (textColor.g shl 16) or (textColor.b shl 8) or textAlpha
+                    .let { Color4b(textColor.r, textColor.g, textColor.b, textAlpha).argb },
+                shadow,
             )
 
-            y += lineHeight + 1
-            if (y > screenHeight - lineHeight) break
+            // Draw tag
+            if (tag != null) {
+                val nameW = font.width(text + " ")
+                val tagX = if (side == Side.RIGHT) {
+                    xText + nameW
+                } else {
+                    xText + nameW
+                }
+                context.text(
+                    font, tag,
+                    tagX, y,
+                    Color4b(tagColor.r, tagColor.g, tagColor.b, tagAlpha).argb,
+                    shadow,
+                )
+            }
+
+            y += lineHeight
+            if (y > context.guiHeight() - lineHeight) break
         }
     }
 
-    private fun ClientModule.displayName(): String {
-        val base = this.name
+    private fun displayNameWithTag(module: ClientModule): String {
+        val base = module.name
         return if (upperCase) base.uppercase() else base
-    }
-
-    private enum class Side : Tagged {
-        LEFT,
-        RIGHT;
-
-        override val tag: String get() = name.lowercase()
     }
 }

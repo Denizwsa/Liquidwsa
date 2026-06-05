@@ -225,6 +225,7 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleSkinChanger
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleSmoothCamera
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleStorageESP
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleTNTTimer
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleTargetHud
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleTracers
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleTrueSight
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleVoidESP
@@ -672,6 +673,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleItemChams,
             ModuleCrystalView,
             ModuleSkinChanger,
+            ModuleTargetHud,
             ModuleProtectionZones,
             ModuleCrosshair,
 

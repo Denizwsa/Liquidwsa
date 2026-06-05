@@ -78,7 +78,14 @@ object ModuleAnimations : ClientModule("Animations", ModuleCategories.RENDER, al
     val blockAnimationChoice = choices(
         "BlockingAnimation", OneSevenAnimation, arrayOf(
             OneSevenAnimation,
-            PushdownAnimation
+            PushdownAnimation,
+            ExhibitionAnimation,
+            SigmaAnimation,
+            AvatarAnimation,
+            SwongAnimation,
+            SwankAnimation,
+            PunchAnimation,
+            JigsawAnimation
         )
     )
 
@@ -172,6 +179,147 @@ object ModuleAnimations : ClientModule("Animations", ModuleCategories.RENDER, al
                 )
             )
             matrices.mulPose(Axis.XP.rotationDegrees(g * -35.0f))
+        }
+
+    }
+
+    /**
+     * Exhibition-style block animation.
+     *
+     * Ported from the 1.8.9 Forge mod by Syuto & Away.
+     * https://github.com/SyutoBestCoder/animations
+     */
+    object ExhibitionAnimation : AnimationMode("Exhibition") {
+
+        override fun transform(matrices: PoseStack, arm: HumanoidArm, equipProgress: Float, swingProgress: Float) {
+            val f = 1.0f - equipProgress
+            val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
+
+            matrices.translate(0.0f, -0.1f, 0.0f)
+            applySwingOffset(matrices, arm, f / 2.0f)
+            matrices.translate(0.1f, 0.4f, -0.1f)
+            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 30.0f))
+            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 50.0f))
+        }
+
+    }
+
+    /**
+     * Sigma-style block animation.
+     *
+     * Ported from the 1.8.9 Forge mod by Syuto & Away.
+     */
+    object SigmaAnimation : AnimationMode("Sigma") {
+
+        override fun transform(matrices: PoseStack, arm: HumanoidArm, equipProgress: Float, swingProgress: Float) {
+            val f = 1.0f - equipProgress
+            val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
+
+            applySwingOffset(matrices, arm, f * 0.5f)
+            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 27.5f))
+            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 45.0f))
+            matrices.translate(-0.1f, 0.3f, 0.1f)
+        }
+
+    }
+
+    /**
+     * Avatar-style block animation: large item rendered with 4-axis rotation
+     * and a 0.4x scale.
+     *
+     * Ported from the 1.8.9 Forge mod by Syuto & Away.
+     */
+    object AvatarAnimation : AnimationMode("Avatar") {
+
+        override fun transform(matrices: PoseStack, arm: HumanoidArm, equipProgress: Float, swingProgress: Float) {
+            val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
+            val sine1 = Mth.sin(swingProgress * swingProgress * Math.PI)
+
+            matrices.translate(0.56f, -0.52f, -0.72f)
+            matrices.mulPose(Axis.YP.rotationDegrees(45.0f))
+            matrices.mulPose(Axis.YP.rotationDegrees(sine1 * -20.0f))
+            matrices.mulPose(Axis.ZP.rotationDegrees(sine * -20.0f))
+            matrices.mulPose(Axis.XP.rotationDegrees(sine * -40.0f))
+            matrices.scale(0.4f, 0.4f, 0.4f)
+        }
+
+    }
+
+    /**
+     * Swong-style block animation: classic gentle sway.
+     *
+     * Ported from the 1.8.9 Forge mod by Syuto & Away.
+     */
+    object SwongAnimation : AnimationMode("Swong") {
+
+        override fun transform(matrices: PoseStack, arm: HumanoidArm, equipProgress: Float, swingProgress: Float) {
+            val f = 1.0f - equipProgress
+            val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
+
+            applySwingOffset(matrices, arm, f / 2.0f)
+            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 20.0f))
+            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 30.0f))
+        }
+
+    }
+
+    /**
+     * Swank-style block animation: similar to Swong but with bigger angles.
+     *
+     * Ported from the 1.8.9 Forge mod by Syuto & Away.
+     */
+    object SwankAnimation : AnimationMode("Swank") {
+
+        override fun transform(matrices: PoseStack, arm: HumanoidArm, equipProgress: Float, swingProgress: Float) {
+            val f = 1.0f - equipProgress
+            val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
+
+            applySwingOffset(matrices, arm, f / 2.0f)
+            matrices.mulPose(Axis.ZP.rotationDegrees(sine * 30.0f))
+            matrices.mulPose(Axis.YP.rotationDegrees(sine * 40.0f))
+        }
+
+    }
+
+    /**
+     * 1.8-style punch block animation: item is pushed forward during the
+     * swing.
+     *
+     * Ported from the 1.8.9 Forge mod by Syuto & Away.
+     */
+    object PunchAnimation : AnimationMode("Punch") {
+
+        override fun transform(matrices: PoseStack, arm: HumanoidArm, equipProgress: Float, swingProgress: Float) {
+            val f = 1.0f - equipProgress
+            val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
+
+            applySwingOffset(matrices, arm, f)
+            matrices.translate(0.1f, 0.2f, 0.3f)
+            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 30.0f))
+            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 10.0f))
+        }
+
+    }
+
+    /**
+     * Jigsaw-style block animation: Avatar variant with extra lateral
+     * translation.
+     *
+     * Ported from the 1.8.9 Forge mod by Syuto & Away.
+     */
+    object JigsawAnimation : AnimationMode("Jigsaw") {
+
+        override fun transform(matrices: PoseStack, arm: HumanoidArm, equipProgress: Float, swingProgress: Float) {
+            val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
+            val sine1 = Mth.sin(swingProgress * swingProgress * Math.PI)
+
+            matrices.translate(0.56f, -0.42f, -0.72f)
+            matrices.translate(0.1f * sine, 0.0f, -0.22f * sine)
+            matrices.translate(0.0f, sine1 * -0.15f, 0.0f)
+            matrices.mulPose(Axis.YP.rotationDegrees(sine1 * 45.0f))
+            matrices.mulPose(Axis.YP.rotationDegrees(sine1 * -20.0f))
+            matrices.mulPose(Axis.ZP.rotationDegrees(sine * -20.0f))
+            matrices.mulPose(Axis.XP.rotationDegrees(sine * -80.0f))
         }
 
     }
