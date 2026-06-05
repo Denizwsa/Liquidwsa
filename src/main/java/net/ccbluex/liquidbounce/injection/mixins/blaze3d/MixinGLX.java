@@ -21,7 +21,6 @@ package net.ccbluex.liquidbounce.injection.mixins.blaze3d;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.mojang.blaze3d.platform.GLX;
-import net.ccbluex.liquidbounce.integration.backend.BrowserBackendManagerKt;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -31,9 +30,8 @@ public abstract class MixinGLX {
 
     @ModifyExpressionValue(method = "_initGlfw", at = @At(value = "FIELD", target = "Lnet/minecraft/SharedConstants;DEBUG_PREFER_WAYLAND:Z", opcode = Opcodes.GETSTATIC))
     private static boolean isWaylandPreferred(boolean original) {
-        return original || !BrowserBackendManagerKt.isBrowserDisabled()
-            && !BrowserBackendManagerKt.getBrowserBackend().equalsIgnoreCase("none")
-            && !BrowserBackendManagerKt.isBrowserAccelerationDisabled();
+        // Browser backend was removed; the original value is sufficient.
+        return original;
     }
 
 }

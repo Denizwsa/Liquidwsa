@@ -49,22 +49,11 @@ import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.account.AccountManager
 import net.ccbluex.liquidbounce.features.blink.BlinkManager
 import net.ccbluex.liquidbounce.features.command.CommandManager
-import net.ccbluex.liquidbounce.features.cosmetic.ClientAccountManager
-import net.ccbluex.liquidbounce.features.cosmetic.CosmeticService
-import net.ccbluex.liquidbounce.features.creativetab.tabs.HeadsCreativeModeTab
-import net.ccbluex.liquidbounce.features.global.GlobalManager
-import net.ccbluex.liquidbounce.features.marketplace.MarketplaceManager
 import net.ccbluex.liquidbounce.features.misc.FriendManager
 import net.ccbluex.liquidbounce.features.misc.proxy.ProxyManager
 import net.ccbluex.liquidbounce.features.module.ModuleManager
 import net.ccbluex.liquidbounce.features.spoofer.SpooferManager
-import net.ccbluex.liquidbounce.integration.backend.BrowserBackendManager
-import net.ccbluex.liquidbounce.integration.interop.ClientInteropServer
-import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.ActiveServerList
-import net.ccbluex.liquidbounce.integration.screen.ScreenManager
 import net.ccbluex.liquidbounce.integration.task.TaskManager
-import net.ccbluex.liquidbounce.integration.task.TaskProgressScreen
-import net.ccbluex.liquidbounce.integration.theme.ThemeManager
 import net.ccbluex.liquidbounce.lang.LanguageManager
 import net.ccbluex.liquidbounce.render.FontManager
 import net.ccbluex.liquidbounce.render.HAS_AMD_VEGA_APU
@@ -276,11 +265,7 @@ object LiquidBounce : EventListener {
         FriendManager
         InventoryManager
         EnderChestInventoryTracker
-        ActiveServerList
-        ConfigSystem.root(ClientAccountManager)
         ConfigSystem.root(SpooferManager)
-        ConfigSystem.root(GlobalManager)
-        ConfigSystem.root(MarketplaceManager)
         PostRotationExecutor
         ServerObserver
         ItemImageAtlas
@@ -324,40 +309,11 @@ object LiquidBounce : EventListener {
                 logger.info("[Update] Update available: $clientVersion -> ${update.lbVersion}")
             }
             launch {
-                // Load cosmetics
-                CosmeticService.refreshCarriers(force = true) {
-                    logger.info("Successfully loaded ${CosmeticService.carriers.size} cosmetics carriers.")
-                }
-            }
-            launch {
-                // Download player heads
-                HeadsCreativeModeTab.heads.getFinalState()
-            }
-            launch {
                 // Load configs
                 AutoConfig.reloadConfigs()
             }
             launch {
                 IpInfoApi.original
-            }
-            launch {
-                ConfigSystem.load(ClientAccountManager)
-                if (ClientAccount.ENV_ACCOUNT != null) {
-                    ClientAccountManager.clientAccount = ClientAccount.ENV_ACCOUNT
-                }
-
-                if (ClientAccountManager.clientAccount != ClientAccount.EMPTY_ACCOUNT) {
-                    runCatching {
-                        ClientAccountManager.clientAccount.renew()
-                    }.onFailure {
-                        logger.error("Failed to renew client account token.", it)
-                        ClientAccountManager.clientAccount = ClientAccount.EMPTY_ACCOUNT
-                    }.onSuccess {
-                        logger.info("Successfully renewed client account token.")
-                    }
-
-                    ConfigSystem.store(ClientAccountManager)
-                }
             }
         }
 
@@ -366,31 +322,15 @@ object LiquidBounce : EventListener {
 
     /**
      * Prepares the GUI stage of the client.
-     * This will load [ThemeManager], as well as the [BrowserBackendManager] and [ClientInteropServer].
      */
     private suspend fun prepareGuiStage(
         dispatcher: CoroutineDispatcher
     ) = withContext(dispatcher) {
         RenderSystem.assertOnRenderThread()
 
-        BrowserBackendManager.init()
-        ClientInteropServer.start()
-        if (!ClientInteropServer.isSkipping) {
-            ThemeManager.init()
-            // Preload marketplace items
-            ConfigSystem.load(MarketplaceManager)
-            ConfigSystem.load(ThemeManager)
-            ThemeManager.load()
-        }
-
         BlurEffectRenderer
-        ScreenManager
 
         taskManager = TaskManager(ioScope).apply {
-            // Either immediately starts browser or spawns a task to request browser dependencies,
-            // and then starts the browser through render thread.
-            BrowserBackendManager.makeDependenciesAvailable(this)
-
             // Initialize deep learning engine as task, because we cannot know if DJL will request
             // resources from the internet.
             launch("Deep Learning") { task ->
@@ -404,16 +344,6 @@ object LiquidBounce : EventListener {
                     // and we don't want to crash the client if it fails.
                     logger.info("Failed to initialize deep learning.", exception)
                 }
-            }
-
-            launch("Marketplace") { task ->
-                runCatching {
-                    MarketplaceManager.updateAll(task)
-                }.onFailure { exception ->
-                    logger.error("Failed to update marketplace items.", exception)
-                }
-
-                task.isCompleted = true
             }
         }
 
@@ -441,9 +371,6 @@ object LiquidBounce : EventListener {
 
         // Save all configurations
         ConfigSystem.storeAll()
-
-        // Shutdown browser
-        BrowserBackendManager.stop()
     }
 
     /**
@@ -468,7 +395,6 @@ object LiquidBounce : EventListener {
             val resourceManager = mc.resourceManager
             if (resourceManager is ReloadableResourceManager) {
                 resourceManager.registerReloadListener(ClientResourceReloader)
-                resourceManager.registerReloadListener(ThemeManager.reloader)
             } else {
                 logger.warn("Failed to register resource reloader!")
 
@@ -476,9 +402,7 @@ object LiquidBounce : EventListener {
                 initializeClient(
                     workerDispatcher = Dispatchers.Default,
                     renderThreadDispatcher = Dispatchers.Minecraft,
-                ).thenRun {
-                    ThemeManager.reloader.onResourceManagerReload(resourceManager)
-                }
+                )
             }
         }.onFailure {
             ErrorHandler.fatal(it, additionalMessage = "Client start")
@@ -489,9 +413,8 @@ object LiquidBounce : EventListener {
     private val screenHandler = handler<ScreenEvent>(priority = FIRST_PRIORITY) { event ->
         val taskManager = taskManager ?: return@handler
 
-        if (!taskManager.isCompleted && event.screen !is TaskProgressScreen) {
+        if (!taskManager.isCompleted) {
             event.cancelEvent()
-            mc.setScreen(TaskProgressScreen("Loading Required Libraries", taskManager))
         }
     }
 

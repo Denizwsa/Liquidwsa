@@ -25,8 +25,6 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.ccbluex.liquidbounce.api.models.cosmetics.CosmeticCategory;
-import net.ccbluex.liquidbounce.features.cosmetic.CosmeticService;
 import net.ccbluex.liquidbounce.features.module.modules.render.*;
 import net.ccbluex.liquidbounce.injection.mixins.minecraft.render.MixinRenderSetupAccessor;
 import net.ccbluex.liquidbounce.injection.mixins.minecraft.render.MixinRenderTypeAccessor;
@@ -174,11 +172,9 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
 
     @ModifyReturnValue(method = "isEntityUpsideDown(Lnet/minecraft/world/entity/LivingEntity;)Z", at = @At("RETURN"))
     private static boolean injectShouldFlipUpsideDown(boolean original, LivingEntity entity) {
-        if (!(entity instanceof AbstractClientPlayer)) {
-            return original;
-        }
-
-        return original || CosmeticService.INSTANCE.hasCosmetic(entity.getUUID(), CosmeticCategory.DINNERBONE);
+        // Cosmetic-based upside-down rendering was tied to the marketplace
+        // backend and has been removed.
+        return original;
     }
 
     // Chams

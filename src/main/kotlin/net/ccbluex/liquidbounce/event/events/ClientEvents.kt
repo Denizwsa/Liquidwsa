@@ -21,18 +21,14 @@ package net.ccbluex.liquidbounce.event.events
 
 import com.google.gson.annotations.SerializedName
 import net.ccbluex.liquidbounce.annotations.Tag
-import net.ccbluex.liquidbounce.config.gson.accessibleInteropGson
 import net.ccbluex.liquidbounce.config.types.Value
 import net.ccbluex.liquidbounce.config.types.group.ValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.CancellableEvent
 import net.ccbluex.liquidbounce.event.Event
-import net.ccbluex.liquidbounce.features.chat.packet.AxoUser
 import net.ccbluex.liquidbounce.features.misc.proxy.Proxy
 import net.ccbluex.liquidbounce.integration.interop.protocol.event.WebSocketEvent
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.PlayerData
-import net.ccbluex.liquidbounce.integration.screen.CustomScreenType
-import net.ccbluex.liquidbounce.integration.theme.component.HudComponent
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.block.bed.BedState
 import net.ccbluex.liquidbounce.utils.inventory.InventoryAction
@@ -125,7 +121,7 @@ class ClientChatStateChange(val state: State) : Event(), WebSocketEvent {
 
 @Tag("clientChatMessage")
 class ClientChatMessageEvent(
-    val user: AxoUser,
+    val user: String,
     val message: String,
     val chatGroup: ChatGroup,
 ) : Event(), WebSocketEvent {
@@ -167,8 +163,7 @@ object BrowserReadyEvent : Event()
 
 @Tag("virtualScreen")
 class VirtualScreenEvent(
-    val type: CustomScreenType,
-    @Deprecated("Use `type` instead") val screenName: String = type.routeName,
+    val type: String,
     val action: Action
 ) : Event(), WebSocketEvent {
 
@@ -186,9 +181,7 @@ class VirtualScreenEvent(
 class ServerPingedEvent(val server: ServerData) : Event(), WebSocketEvent
 
 @Tag("componentsUpdate")
-class ComponentsUpdateEvent(val id: String? = null, val components: List<HudComponent>) : Event(), WebSocketEvent {
-    override val serializer get() = accessibleInteropGson
-}
+class ComponentsUpdateEvent(val id: String? = null, val components: List<Any> = emptyList()) : Event(), WebSocketEvent
 
 @Tag("rotationUpdate")
 object RotationUpdateEvent : Event()

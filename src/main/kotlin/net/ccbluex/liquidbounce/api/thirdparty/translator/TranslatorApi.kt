@@ -19,8 +19,6 @@
 
 package net.ccbluex.liquidbounce.api.thirdparty.translator
 
-import net.ccbluex.liquidbounce.features.command.commands.translate.CommandAutoTranslate
-
 /**
  * Interface for a translation API that translates text from one language to another.
  * The implementation provides two methods: `translate` and `translateInternal`.
@@ -34,21 +32,11 @@ import net.ccbluex.liquidbounce.features.command.commands.translate.CommandAutoT
 interface TranslatorApi {
     /**
      * Translates the provided text from a source language to a target language.
-     * The source language is auto-detected by default,
-     * and the target language is defined by the `targetLanguage` parameter.
-     *
-     * @param sourceLanguage The language of the input text. Defaults to `TranslateLanguage.Auto` (auto-detection).
-     * @param targetLanguage The language to which the text should be translated.
-     *                       Defaults to a language code from `CommandAutoTranslate.languageCode`.
-     * @param text The text to translate.
-     *
-     * @return A [TranslationResult] object containing the translation result.
-     *
-     * @throws IllegalArgumentException If the `text` parameter is blank.
+     * The source language is auto-detected by default.
      */
     suspend fun translate(
         sourceLanguage: TranslateLanguage = TranslateLanguage.Auto,
-        targetLanguage: TranslateLanguage = TranslateLanguage.of(CommandAutoTranslate.languageCode),
+        targetLanguage: TranslateLanguage = TranslateLanguage.Literal("en-US"),
         text: String
     ): TranslationResult {
         require(text.isNotBlank()) { "Text cannot be blank." }

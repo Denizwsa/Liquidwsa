@@ -29,19 +29,13 @@ import net.ccbluex.liquidbounce.features.command.commands.client.CommandBind
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandBinds
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandClear
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandConfig
-import net.ccbluex.liquidbounce.features.command.commands.client.CommandDebug
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandFriend
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandHelp
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandHide
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandLocalConfig
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandPanic
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandScript
-import net.ccbluex.liquidbounce.features.command.commands.client.CommandTargets
 import net.ccbluex.liquidbounce.features.command.commands.client.CommandToggle
-import net.ccbluex.liquidbounce.features.command.commands.client.CommandValue
-import net.ccbluex.liquidbounce.features.command.commands.client.client.CommandClient
-import net.ccbluex.liquidbounce.features.command.commands.client.marketplace.CommandMarketplace
-import net.ccbluex.liquidbounce.features.command.commands.deeplearn.CommandModels
 import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandCenter
 import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandCoordinates
 import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandPing
@@ -63,8 +57,6 @@ import net.ccbluex.liquidbounce.features.command.commands.module.CommandXRay
 import net.ccbluex.liquidbounce.features.command.commands.module.teleport.CommandPlayerTeleport
 import net.ccbluex.liquidbounce.features.command.commands.module.teleport.CommandTeleport
 import net.ccbluex.liquidbounce.features.command.commands.module.teleport.CommandVClip
-import net.ccbluex.liquidbounce.features.command.commands.translate.CommandAutoTranslate
-import net.ccbluex.liquidbounce.features.command.commands.translate.CommandTranslate
 import net.ccbluex.liquidbounce.features.misc.HideAppearance
 import net.ccbluex.liquidbounce.lang.translation
 import net.ccbluex.liquidbounce.script.ScriptApiRequired
@@ -122,7 +114,6 @@ object CommandManager : Collection<Command> by commandSet {
 
     fun registerInbuilt() {
         val commands = arrayOf(
-            CommandClient,
             CommandFriend,
             CommandToggle,
             CommandBind,
@@ -133,11 +124,9 @@ object CommandManager : Collection<Command> by commandSet {
             CommandHide,
             CommandInvsee,
             CommandPanic,
-            CommandValue,
             CommandPing,
             CommandRemoteView,
             CommandXRay,
-            CommandTargets,
             CommandConfig,
             CommandLocalConfig,
             CommandAutoDisable,
@@ -145,7 +134,6 @@ object CommandManager : Collection<Command> by commandSet {
             CommandSay,
             CommandFakePlayer,
             CommandAutoAccount,
-            CommandDebug,
             CommandItemRename,
             CommandItemGive,
             CommandItemSkull,
@@ -158,10 +146,6 @@ object CommandManager : Collection<Command> by commandSet {
             CommandPlayerTeleport,
             CommandTps,
             CommandServerInfo,
-            CommandModels,
-            CommandTranslate,
-            CommandAutoTranslate,
-            CommandMarketplace
         )
 
         commands.forEach {

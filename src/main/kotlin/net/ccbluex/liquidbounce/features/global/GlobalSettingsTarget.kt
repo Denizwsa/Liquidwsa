@@ -16,43 +16,34 @@
  * You should have received a copy of the GNU General Public License
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
-
 package net.ccbluex.liquidbounce.features.global
 
-import net.ccbluex.fastutil.enumSetAllOf
-import net.ccbluex.fastutil.enumSetOf
-import net.ccbluex.liquidbounce.config.types.group.ValueGroup
+import net.ccbluex.liquidbounce.config.types.list.MultiChoiceListValue
 import net.ccbluex.liquidbounce.utils.combat.Targets
-import java.util.EnumSet
 
-object GlobalSettingsTarget : ValueGroup(
-    name = "Targets",
-    aliases = listOf("Enemies")
-) {
+/**
+ * Target settings used by combat and visual features.
+ *
+ * Originally backed by the web theme's settings; kept as a minimal in-memory
+ * configuration so that combat and rendering helpers can still consume it.
+ */
+object GlobalSettingsTarget {
 
-    val combatChoices = multiEnumChoice("Combat",
-        default = enumSetOf(
-            Targets.PLAYERS,
-            Targets.HOSTILE,
-            Targets.ANGERABLE,
-            Targets.WATER_CREATURE,
-            Targets.INVISIBLE,
-        ),
-        choices = enumSetAllOf<Targets>().apply { remove(Targets.SELF) },
+    val visualChoices: MultiChoiceListValue<Targets> = MultiChoiceListValue(
+        "VisualTargets",
+        enumValues<Targets>().toMutableSet(),
+        enumValues<Targets>().toSet(),
     )
 
-    val visualChoices = multiEnumChoice("Visual",
-        default = enumSetOf(
-            Targets.PLAYERS,
-            Targets.HOSTILE,
-            Targets.ANGERABLE,
-            Targets.WATER_CREATURE,
-            Targets.INVISIBLE,
-        ),
-        choices = enumSetAllOf(),
+    val combatChoices: MultiChoiceListValue<Targets> = MultiChoiceListValue(
+        "CombatTargets",
+        enumValues<Targets>().toMutableSet(),
+        enumValues<Targets>().toSet(),
     )
 
-    inline val combat: EnumSet<Targets> get() = combatChoices.get() as EnumSet
+    val visual: Set<Targets>
+        get() = visualChoices.choices
 
-    inline val visual: EnumSet<Targets> get() = visualChoices.get() as EnumSet
+    val combat: Set<Targets>
+        get() = combatChoices.choices
 }

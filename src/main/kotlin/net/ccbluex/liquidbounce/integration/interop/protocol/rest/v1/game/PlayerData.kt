@@ -16,13 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
+package net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game
 
-package net.ccbluex.liquidbounce.features.command.preset
+import net.minecraft.world.entity.player.Player
 
-import net.ccbluex.liquidbounce.api.models.auth.ClientAccount
-import net.ccbluex.liquidbounce.features.command.CommandException
-import net.ccbluex.liquidbounce.lang.translation
-
-internal fun accountOrException(): ClientAccount {
-    throw CommandException(translation("liquidbounce.command.account.placeholder"))
+/**
+ * Minimal player data holder kept as a stub after the web integration was
+ * removed. The data is no longer transmitted over the network, but events
+ * that previously carried it still need a non-null type to compile.
+ */
+data class PlayerData(
+    val name: String,
+    val uuid: String,
+) {
+    companion object {
+        @JvmStatic
+        fun fromPlayer(player: Player): PlayerData = PlayerData(
+            name = player.gameProfile.name,
+            uuid = player.uuid.toString(),
+        )
+    }
 }

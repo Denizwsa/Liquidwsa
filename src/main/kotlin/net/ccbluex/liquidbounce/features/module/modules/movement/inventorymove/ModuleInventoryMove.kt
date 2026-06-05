@@ -31,7 +31,6 @@ import net.ccbluex.liquidbounce.features.module.modules.movement.inventorymove.f
 import net.ccbluex.liquidbounce.features.module.modules.movement.inventorymove.features.InventoryMoveSneakControlFeature
 import net.ccbluex.liquidbounce.features.module.modules.movement.inventorymove.features.InventoryMoveSprintControlFeature
 import net.ccbluex.liquidbounce.features.module.modules.movement.inventorymove.features.InventoryMoveTimerFeature
-import net.ccbluex.liquidbounce.features.module.modules.render.ModuleClickGui
 import net.ccbluex.liquidbounce.utils.network.sendCloseInventory
 import net.ccbluex.liquidbounce.utils.network.sendPacketSilently
 import net.ccbluex.liquidbounce.utils.inventory.InventoryManager
@@ -101,7 +100,7 @@ object ModuleInventoryMove : ClientModule("InventoryMove", ModuleCategories.MOVE
     fun shouldHandleInputs(keyBinding: KeyMapping): Boolean {
         val screen = mc.screen ?: return true
 
-        if (!running || screen is ChatScreen || screen.isInCreativeSearchField() || ModuleClickGui.isInSearchBar) {
+        if (!running || screen is ChatScreen || screen.isInCreativeSearchField()) {
             return false
         }
 

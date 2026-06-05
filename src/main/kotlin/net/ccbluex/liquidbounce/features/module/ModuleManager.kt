@@ -184,6 +184,7 @@ import net.ccbluex.liquidbounce.features.module.modules.player.nofall.ModuleNoFa
 import net.ccbluex.liquidbounce.features.module.modules.player.offhand.ModuleOffhand
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleAnimations
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleAntiBlind
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleArrayList
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleAspect
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleAutoF5
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleBedPlates
@@ -202,7 +203,6 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeCam
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeLook
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFullBright
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHoleESP
-import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleItemChams
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleItemESP
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleItemTags
@@ -621,12 +621,12 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             // Render
             ModuleAnimations,
             ModuleAntiBlind,
+            ModuleArrayList,
             ModuleBetterInventory,
             ModuleBlockESP,
             ModuleBlockOutline,
             ModuleBreadcrumbs,
             ModuleCameraClip,
-            ModuleClickGui,
             ModuleDamageParticles,
             ModuleParticles,
             ModuleESP,
@@ -636,7 +636,6 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleFreeLook,
             ModuleFullBright,
             ModuleHoleESP,
-            ModuleHud,
             ModuleHats,
             ModuleItemESP,
             ModuleItemTags,
@@ -669,6 +668,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleXRay,
             ModuleDebug,
             ModuleZoom,
+            ModuleClickGui,
             ModuleItemChams,
             ModuleCrystalView,
             ModuleSkinChanger,

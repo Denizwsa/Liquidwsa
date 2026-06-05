@@ -34,9 +34,6 @@ import net.ccbluex.liquidbounce.features.module.modules.render.DoRender;
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleAntiBlind;
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeCam;
 import net.ccbluex.liquidbounce.features.module.modules.render.crosshair.ModuleCrosshair;
-import net.ccbluex.liquidbounce.integration.theme.component.HudComponent;
-import net.ccbluex.liquidbounce.integration.theme.component.HudComponentManager;
-import net.ccbluex.liquidbounce.integration.theme.component.HudComponentTweak;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -47,15 +44,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.AttackRange;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -75,12 +69,6 @@ public abstract class MixinGui {
     @Final
     private Minecraft minecraft;
 
-    @Shadow
-    protected abstract void extractSlot(GuiGraphicsExtractor context, int x, int y, DeltaTracker tickCounter, Player player, ItemStack stack, int seed);
-
-    /**
-     * Hook render hud event at the top layer
-     */
     @Inject(method = "extractHotbarAndDecorations", at = @At("HEAD"))
     private void hookRenderEventStart(GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
         if (HideAppearance.INSTANCE.isHidingNow()) {
@@ -88,13 +76,6 @@ public abstract class MixinGui {
         }
 
         EventManager.INSTANCE.callEvent(new OverlayRenderEvent(context, tickCounter.getGameTimeDeltaPartialTick(false)));
-
-        // Draw after overlay event
-        var component = HudComponentManager.getComponentWithTweak(HudComponentTweak.TWEAK_HOTBAR);
-        if (component != null && component.getRunning() &&
-                minecraft.gameMode.getPlayerMode() != GameType.SPECTATOR) {
-            drawHotbar(context, tickCounter, component);
-        }
     }
 
     @Inject(method = "extractSpyglassOverlay", at = @At("HEAD"), cancellable = true)
@@ -123,7 +104,7 @@ public abstract class MixinGui {
     @Inject(method = "extractCrosshair", at = @At("HEAD"), cancellable = true)
     private void hookFreeCamRenderCrosshairInThirdPerson(GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
         if ((ModuleFreeCam.INSTANCE.getRunning() && ModuleFreeCam.INSTANCE.shouldDisableCameraInteract())
-                || HudComponentManager.isTweakEnabled(HudComponentTweak.DISABLE_CROSSHAIR) || ModuleCrosshair.INSTANCE.getEnabled()) {
+                || ModuleCrosshair.INSTANCE.getEnabled()) {
             ci.cancel();
         }
     }
@@ -135,62 +116,16 @@ public abstract class MixinGui {
         }
     }
 
-    @Inject(method = "extractScoreboardSidebar", at = @At("HEAD"), cancellable = true)
-    private void renderScoreboardSidebar(CallbackInfo ci) {
-        if (HudComponentManager.isTweakEnabled(HudComponentTweak.DISABLE_SCOREBOARD)) {
+    @Inject(method = "extractTitle", at = @At("HEAD"), cancellable = true)
+    private void hookRenderTitleAndSubtitle(CallbackInfo ci) {
+        if (!ModuleAntiBlind.canRender(DoRender.TITLE)) {
             ci.cancel();
         }
     }
 
-    @Inject(method = "extractItemHotbar", at = @At("HEAD"), cancellable = true)
-    private void hookRenderHotbar(CallbackInfo ci) {
-        if (HudComponentManager.isTweakEnabled(HudComponentTweak.TWEAK_HOTBAR)) {
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "extractPlayerHealth", at = @At("HEAD"), cancellable = true)
-    private void hookRenderStatusBars(CallbackInfo ci) {
-        if (HudComponentManager.isTweakEnabled(HudComponentTweak.DISABLE_STATUS_BAR)) {
-            ci.cancel();
-        }
-    }
-
-    @ModifyReturnValue(method = "nextContextualInfoState", at = @At("RETURN"))
-    private Gui.ContextualInfo tweakExpBar(Gui.ContextualInfo original) {
-        if (HudComponentManager.isTweakEnabled(HudComponentTweak.DISABLE_EXP_BAR) && original == Gui.ContextualInfo.EXPERIENCE) {
-            return Gui.ContextualInfo.EMPTY;
-        }
-        return original;
-    }
-
-    @WrapOperation(method = "extractHotbarAndDecorations", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;hasExperience()Z"))
-    private boolean tweakExpLevelText(MultiPlayerGameMode instance, Operation<Boolean> original) {
-        if (HudComponentManager.isTweakEnabled(HudComponentTweak.DISABLE_EXP_BAR)) {
-            return false;
-        }
-        return original.call(instance);
-    }
-
-    @Inject(method = "extractSelectedItemName", at = @At("HEAD"), cancellable = true)
-    private void hookRenderHeldItemTooltip(CallbackInfo ci) {
-        if (HudComponentManager.isTweakEnabled(HudComponentTweak.DISABLE_HELD_ITEM_TOOL_TIP)) {
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "setOverlayMessage", at = @At("HEAD"), cancellable = true)
-    private void hookSetOverlayMessage(Component message, boolean tinted, CallbackInfo ci) {
-        EventManager.INSTANCE.callEvent(new OverlayMessageEvent(message, tinted));
-
-        if (HudComponentManager.isTweakEnabled(HudComponentTweak.DISABLE_OVERLAY_MESSAGE)) {
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "extractEffects", at = @At("HEAD"), cancellable = true)
-    private void hookRenderStatusEffectOverlay(CallbackInfo ci) {
-        if (HudComponentManager.isTweakEnabled(HudComponentTweak.DISABLE_STATUS_EFFECT_OVERLAY)) {
+    @Inject(method = "extractConfusionOverlay", at = @At("HEAD"), cancellable = true)
+    private void hookNauseaOverlay(GuiGraphicsExtractor context, float distortionStrength, CallbackInfo ci) {
+        if (!ModuleAntiBlind.canRender(DoRender.NAUSEA)) {
             ci.cancel();
         }
     }
@@ -198,33 +133,6 @@ public abstract class MixinGui {
     @ModifyExpressionValue(method = "extractItemHotbar", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;isEmpty()Z"))
     private boolean hookOffhandItem(boolean original) {
         return original || ModuleSwordBlock.INSTANCE.shouldHideOffhand() && ModuleSwordBlock.INSTANCE.getHideShieldSlot();
-    }
-
-    @Unique
-    private void drawHotbar(GuiGraphicsExtractor context, DeltaTracker tickCounter, HudComponent hudComponent) {
-        var playerEntity = this.getCameraPlayer();
-        if (playerEntity == null) {
-            return;
-        }
-
-        var itemWidth = 22.5;
-        var offset = 98;
-        var bounds = hudComponent.getAlignment().getBounds(0, 0);
-
-        int center = (int) bounds.xMin();
-        var y = bounds.yMin() - 12;
-
-        int l = 1;
-        for (int m = 0; m < 9; ++m) {
-            var x = center - offset + m * itemWidth;
-            this.extractSlot(context, (int) x, (int) y, tickCounter, playerEntity,
-                    playerEntity.getInventory().getNonEquipmentItems().get(m), l++);
-        }
-
-        var offHandStack = playerEntity.getOffhandItem();
-        if (!hookOffhandItem(offHandStack.isEmpty())) {
-            this.extractSlot(context, center - offset - 32, (int) y, tickCounter, playerEntity, offHandStack, l);
-        }
     }
 
     @ModifyExpressionValue(method = "extractCrosshair",
@@ -247,20 +155,6 @@ public abstract class MixinGui {
         return EventManager.INSTANCE.callEvent(new PerspectiveEvent(original)).getPerspective();
     }
 
-    @Inject(method = "extractTitle", at = @At("HEAD"), cancellable = true)
-    private void hookRenderTitleAndSubtitle(CallbackInfo ci) {
-        if (!ModuleAntiBlind.canRender(DoRender.TITLE)) {
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "extractConfusionOverlay", at = @At("HEAD"), cancellable = true)
-    private void hookNauseaOverlay(GuiGraphicsExtractor context, float distortionStrength, CallbackInfo ci) {
-        if (!ModuleAntiBlind.canRender(DoRender.NAUSEA)) {
-            ci.cancel();
-        }
-    }
-
     @ModifyReceiver(
         method = "extractCrosshair",
         at = @At(
@@ -276,4 +170,8 @@ public abstract class MixinGui {
         return instance;
     }
 
+    @Inject(method = "setOverlayMessage", at = @At("HEAD"), cancellable = true)
+    private void hookSetOverlayMessage(Component message, boolean tinted, CallbackInfo ci) {
+        EventManager.INSTANCE.callEvent(new OverlayMessageEvent(message, tinted));
+    }
 }

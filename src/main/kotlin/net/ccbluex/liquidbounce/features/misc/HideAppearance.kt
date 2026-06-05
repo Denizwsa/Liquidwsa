@@ -32,7 +32,6 @@ import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.command.CommandManager
 import net.ccbluex.liquidbounce.features.misc.HideAppearance.isHidingNow
 import net.ccbluex.liquidbounce.features.module.ModuleManager
-import net.ccbluex.liquidbounce.integration.screen.ScreenManager
 import net.ccbluex.liquidbounce.utils.client.Chronometer
 import net.ccbluex.liquidbounce.utils.client.env
 import net.ccbluex.liquidbounce.utils.client.inGame
@@ -94,12 +93,6 @@ object HideAppearance : EventListener {
     var isDestructed = false
 
     private fun updateClient() {
-        if (isHidingNow) {
-            ScreenManager.restoreOriginalScreen()
-        } else {
-            ScreenManager.update()
-        }
-
         mc.updateTitle()
         mc.window.setIcon(
             mc.vanillaPackResources,

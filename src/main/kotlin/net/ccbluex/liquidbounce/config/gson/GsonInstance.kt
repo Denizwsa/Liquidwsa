@@ -42,8 +42,6 @@ import net.ccbluex.liquidbounce.config.gson.adapter.Vec3dAdapter
 import net.ccbluex.liquidbounce.config.gson.adapter.Vec3iAdapter
 import net.ccbluex.liquidbounce.config.gson.adapter.Vector2fcAdapter
 import net.ccbluex.liquidbounce.config.gson.serializer.ModeValueGroupSerializer
-import net.ccbluex.liquidbounce.config.gson.serializer.ReadOnlyComponentSerializer
-import net.ccbluex.liquidbounce.config.gson.serializer.ReadOnlyThemeSerializer
 import net.ccbluex.liquidbounce.config.gson.serializer.SupplierSerializer
 import net.ccbluex.liquidbounce.config.gson.serializer.TaggedSerializer
 import net.ccbluex.liquidbounce.config.gson.serializer.ValueGroupSerializer
@@ -58,8 +56,6 @@ import net.ccbluex.liquidbounce.config.gson.stategies.ProtocolExcludeStrategy
 import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.config.types.group.ValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
-import net.ccbluex.liquidbounce.integration.theme.Theme
-import net.ccbluex.liquidbounce.integration.theme.component.HudComponent
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.input.InputBind
 import net.ccbluex.liquidbounce.utils.render.Alignment
@@ -129,8 +125,6 @@ internal val accessibleInteropGson: Gson = GsonBuilder()
     .registerCommonTypeAdapters()
     .registerTypeAdapter(ModeValueGroup::class.java, ModeValueGroupSerializer.INTEROP_SERIALIZER)
     .registerTypeHierarchyAdapter(ValueGroup::class.java, ValueGroupSerializer.INTEROP_SERIALIZER)
-    .registerTypeHierarchyAdapter(Theme::class.javaObjectType, ReadOnlyThemeSerializer)
-    .registerTypeHierarchyAdapter(HudComponent::class.javaObjectType, ReadOnlyComponentSerializer)
     .registerTypeHierarchyAdapter(Alignment::class.javaObjectType, AlignmentAdapter)
     .create()
 

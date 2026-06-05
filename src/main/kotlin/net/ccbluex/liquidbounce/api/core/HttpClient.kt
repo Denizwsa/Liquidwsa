@@ -29,8 +29,7 @@ import net.ccbluex.liquidbounce.api.interceptors.CacheBlacklistInterceptor
 import net.ccbluex.liquidbounce.authlib.Authlib
 import net.ccbluex.liquidbounce.authlib.interceptor.DefaultHeaderInterceptor
 import net.ccbluex.liquidbounce.config.gson.util.readJson
-import net.ccbluex.liquidbounce.mcef.MCEF
-import net.ccbluex.liquidbounce.mcef.listeners.OkHttpProgressInterceptor
+
 import net.ccbluex.liquidbounce.utils.client.error.ErrorHandler
 import net.ccbluex.liquidbounce.utils.client.logger
 import net.ccbluex.liquidbounce.utils.kotlin.Minecraft
@@ -134,7 +133,6 @@ object HttpClient {
         .addInterceptor(CacheBlacklistInterceptor(setOf("localhost", "127.0.0.1")))
         .addInterceptor(DefaultHeaderInterceptor("User-Agent", DEFAULT_AGENT, skipIfExists = true))
         .build().also {
-            MCEF.INSTANCE.settings.okHttpClient = it
             Authlib.client = it
         }
 
@@ -177,7 +175,6 @@ object HttpClient {
         agent: String = DEFAULT_AGENT,
         headers: Headers.Builder.() -> Unit = {},
         body: RequestBody? = null,
-        progressListener: OkHttpProgressInterceptor.ProgressListener? = null
     ): Response {
         val request = Request.Builder()
             .url(url)
@@ -186,22 +183,14 @@ object HttpClient {
             .header("User-Agent", agent)
             .build()
 
-        return if (progressListener == null) {
-            client.newCall(request).executeAsync()
-        } else {
-            client.newBuilder()
-                .addNetworkInterceptor(OkHttpProgressInterceptor(progressListener))
-                .build()
-                .newCall(request).executeAsync()
-        }
+        return client.newCall(request).executeAsync()
     }
 
     suspend fun download(
         url: String,
         file: File,
         agent: String = DEFAULT_AGENT,
-        progressListener: OkHttpProgressInterceptor.ProgressListener? = null
-    ) = request(url, HttpMethod.GET, agent, progressListener = progressListener).toFile(file)
+    ) = request(url, HttpMethod.GET, agent).toFile(file)
 
     // For Java and JS
     @JvmStatic

@@ -18,24 +18,9 @@
  */
 package net.ccbluex.liquidbounce.integration.interop.protocol.event
 
-import com.google.gson.Gson
-import net.ccbluex.liquidbounce.config.gson.interopGson
-
 /**
- * Interface indicating that the marked event is designated for transmission through WebSocket communication.
- * This interface serves as a declarative marker for WebSocket-compatible events, signaling their eligibility for
- * propagation over WebSocket connections.
+ * Marker interface kept for binary/source compatibility after the web
+ * integration was removed. The event bus still emits events that used to be
+ * forwarded to the browser, but the actual WebSocket transport is gone.
  */
-interface WebSocketEvent {
-    val serializer: Gson get() = interopGson
-
-    /**
-     * Indicates whether the event should be serialized asynchronously.
-     * If set to true, the event will be serialized in a separate thread.
-     *
-     * The most common situation you need to set this to `false` is the event contains **mutable** states
-     * that is modified after the event is created.
-     */
-    val serializeAsync: Boolean get() = true
-}
-
+interface WebSocketEvent

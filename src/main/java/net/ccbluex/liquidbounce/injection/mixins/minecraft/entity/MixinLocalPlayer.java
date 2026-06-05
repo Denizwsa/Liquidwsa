@@ -37,9 +37,6 @@ import net.ccbluex.liquidbounce.features.module.modules.player.ModuleReach;
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeCam;
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNoSwing;
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleLiquidPlace;
-import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.PlayerData;
-import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.PlayerInventoryData;
-import net.ccbluex.liquidbounce.integration.screen.ScreenManager;
 import net.ccbluex.liquidbounce.interfaces.LocalPlayerAddition;
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager;
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation;
@@ -85,12 +82,6 @@ public abstract class MixinLocalPlayer extends MixinPlayer implements LocalPlaye
     public abstract boolean isUnderWater();
 
     @Unique
-    private PlayerData lastKnownStatistics = null;
-
-    @Unique
-    private PlayerInventoryData lastKnownInventory = null;
-
-    @Unique
     private PlayerNetworkMovementTickEvent eventMotion;
 
     @Unique
@@ -121,20 +112,6 @@ public abstract class MixinLocalPlayer extends MixinPlayer implements LocalPlaye
             ordinal = 0))
     private void hookPostTickEvent(CallbackInfo ci) {
         EventManager.INSTANCE.callEvent(PlayerPostTickEvent.INSTANCE);
-
-        // Call player statistics change event when statistics change
-        var statistics = PlayerData.Companion.fromPlayer((LocalPlayer) (Object) this);
-        if (lastKnownStatistics == null || !lastKnownStatistics.equals(statistics)) {
-            EventManager.INSTANCE.callEvent(new ClientPlayerDataEvent(statistics));
-        }
-        this.lastKnownStatistics = statistics;
-
-        // Call player inventory event when inventory changes
-        var playerInventory = PlayerInventoryData.Companion.fromPlayer((LocalPlayer) (Object) this);
-        if (lastKnownInventory == null || !lastKnownInventory.equals(playerInventory)) {
-            EventManager.INSTANCE.callEvent(new ClientPlayerInventoryEvent(playerInventory));
-        }
-        this.lastKnownInventory = playerInventory;
     }
 
     /**
@@ -459,8 +436,9 @@ public abstract class MixinLocalPlayer extends MixinPlayer implements LocalPlaye
 
     @WrapWithCondition(method = "clientSideCloseContainer", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V"))
     private boolean preventCloseScreen(Minecraft instance, Screen screen) {
-        // Prevent closing screen if the current screen is a client screen
-        return !ScreenManager.isClientScreen(screen);
+        // The custom client screen registry has been removed; the previous
+        // behaviour was to skip close for any client-registered screen.
+        return true;
     }
 
 }

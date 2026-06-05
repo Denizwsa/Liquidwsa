@@ -38,9 +38,6 @@ import net.ccbluex.liquidbounce.features.module.modules.player.ModuleAutoBreak;
 import net.ccbluex.liquidbounce.features.module.modules.player.ModuleNoBlockInteract;
 import net.ccbluex.liquidbounce.features.module.modules.player.ModuleReach;
 import net.ccbluex.liquidbounce.features.module.modules.player.cheststealer.features.FeatureSilentScreen;
-import net.ccbluex.liquidbounce.integration.backend.BrowserBackendManager;
-import net.ccbluex.liquidbounce.integration.backend.browser.GlobalBrowserSettings;
-import net.ccbluex.liquidbounce.integration.screen.ScreenManager;
 import net.ccbluex.liquidbounce.utils.client.vfp.VfpCompatibility;
 import net.ccbluex.liquidbounce.utils.combat.CombatManager;
 import net.minecraft.SharedConstants;
@@ -52,6 +49,8 @@ import net.minecraft.client.gui.screens.AccessibilityOnboardingScreen;
 import net.minecraft.client.gui.screens.Overlay;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.ccbluex.liquidbounce.render.gui.MultiplayerWithAccountsScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -203,19 +202,9 @@ public abstract class MixinMinecraft {
             titleBuilder.append(SharedConstants.getCurrentVersion().name());
         }
 
-        // For debugging purposes, will be removed until we have a stable release
-        var backend = BrowserBackendManager.INSTANCE.getBackend();
-        if (backend != null && backend.isInitialized() && backend.getAccelerationFlags().isSupported()) {
-            var accelerated = GlobalBrowserSettings.INSTANCE.getAccelerated();
+        // The web browser backend has been removed, so the "Accelerated
+        // Paint" indicator and F12 hotkey hint are no longer relevant.
 
-            if (accelerated != null && accelerated.get()) {
-                titleBuilder.append(" | Accelerated Paint is ON");
-                // Hotkey only works when not in-game
-                if (this.level == null && this.player == null) {
-                    titleBuilder.append(" [Hotkey: F12]");
-                }
-            }
-        }
 
         ClientPacketListener clientPlayNetworkHandler = this.getConnection();
         if (clientPlayNetworkHandler != null && clientPlayNetworkHandler.getConnection().isConnected()) {
@@ -270,6 +259,16 @@ public abstract class MixinMinecraft {
         if (screen instanceof AccessibilityOnboardingScreen) {
             callbackInfo.cancel();
             this.setScreen(new TitleScreen(true));
+            return;
+        }
+
+        // LiquidBounce's own account manager lives inside the multiplayer screen.
+        // Use exact class match: our MultiplayerWithAccountsScreen extends
+        // JoinMultiplayerScreen and must not be replaced recursively.
+        if (screen != null && screen.getClass() == JoinMultiplayerScreen.class) {
+            Screen parent = this.screen;
+            callbackInfo.cancel();
+            this.setScreen(new MultiplayerWithAccountsScreen(parent));
         }
     }
 
@@ -433,14 +432,10 @@ public abstract class MixinMinecraft {
      */
     @Inject(method = "tick", at = @At(value = "FIELD", target = "Lnet/minecraft/client/Minecraft;screen:Lnet/minecraft/client/gui/screens/Screen;", ordinal = 4, shift = At.Shift.BEFORE, opcode = Opcodes.GETFIELD), locals = LocalCapture.CAPTURE_FAILSOFT)
     private void passthroughInputHandler(CallbackInfo ci, @Local(name = "profiler") ProfilerFiller profiler) {
-        if (this.overlay == null && this.player != null && this.level
-            != null && ScreenManager.isClientScreen(this.screen)) {
-            profiler.popPush("Keybindings");
-
-            if (ModuleAutoBreak.INSTANCE.getEnabled()) {
-                this.continueAttack(this.options.keyAttack.isDown());
-            }
-        }
+        // The custom client screen registry has been removed, so the
+        // passthrough path that used to forward keybinds to combat modules
+        // for browser screens no longer runs. The handler is kept for ABI
+        // stability but is effectively a no-op.
     }
 
     @ModifyExpressionValue(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z", ordinal = 0))
@@ -463,9 +458,10 @@ public abstract class MixinMinecraft {
 
     @WrapWithCondition(method = "tick", at = @At(value = "FIELD", target = "Lnet/minecraft/client/Minecraft;missTime:I", ordinal = 0, opcode = Opcodes.PUTFIELD))
     private boolean injectFixAttackCooldownOnVirtualBrowserScreen(Minecraft instance, int value) {
-        // Do not reset attack cooldown when we are in the vr/browser screen, as this poses an
-        // unintended modification to the attack cooldown, which is not intended.
-        return !ScreenManager.isClientScreen(this.screen);
+        // The custom client screen registry has been removed. The previous
+        // behaviour was to skip the attack cooldown reset for browser
+        // screens; now we always allow the vanilla reset.
+        return true;
     }
 
     @Inject(method = "clearDownloadedResourcePacks", at = @At("HEAD"))

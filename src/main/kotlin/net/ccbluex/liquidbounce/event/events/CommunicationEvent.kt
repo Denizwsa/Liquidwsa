@@ -16,13 +16,12 @@
  * You should have received a copy of the GNU General Public License
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
+package net.ccbluex.liquidbounce.event.events
 
-package net.ccbluex.liquidbounce.features.command.preset
+import net.ccbluex.liquidbounce.event.Event
+import net.ccbluex.liquidbounce.integration.interop.protocol.event.WebSocketEvent
 
-import net.ccbluex.liquidbounce.api.models.auth.ClientAccount
-import net.ccbluex.liquidbounce.features.command.CommandException
-import net.ccbluex.liquidbounce.lang.translation
-
-internal fun accountOrException(): ClientAccount {
-    throw CommandException(translation("liquidbounce.command.account.placeholder"))
-}
+/**
+ * Marker kept for source compatibility after the web integration was removed.
+ */
+object CommunicationEvent : Event(), WebSocketEvent

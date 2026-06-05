@@ -12,8 +12,6 @@ fabric-loader = "0.19.2"
 fabric-loaderMin = "0.18.4"
 fabric-api = "0.149.1+26.1.2"
 
-# mcef
-mcef = "3.3.1-26.1-SNAPSHOT"
 # mc-authlib
 mc_authlib = "1.7.0"
 # Polyglot
@@ -23,7 +21,6 @@ djl = "0.36.0"
 # https://mvnrepository.com/artifact/com.squareup.okhttp3/okhttp
 okhttp = "5.3.2"
 
-httpServer = "2.6.1"
 discordIpc = "0.6.0-SNAPSHOT"
 semver4j = "3.1.0"
 ahocorasick = "0.6.3"
@@ -61,7 +58,6 @@ lwjgl = "3.4.1"
 detekt = "2.0.0-alpha.3"
 gradleGitProperties = "3.0.3"
 dokka = "2.2.0"
-nodeGradle = "7.1.0"
 
 [libraries]
 minecraft = { group = "com.mojang", name = "minecraft", version.ref = "minecraft" }
@@ -75,12 +71,9 @@ junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.r
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version.ref = "junit" }
 
 netty-handler-proxy = { group = "io.netty", name = "netty-handler-proxy", version.ref = "netty" }
-lwjgl-egl = { group = "org.lwjgl", name = "lwjgl-egl", version.ref = "lwjgl" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-coroutines = { group = "com.squareup.okhttp3", name = "okhttp-coroutines", version.ref = "okhttp" }
 mcAuthlib = { group = "net.ccbluex", name = "mc-authlib", version.ref = "mc_authlib" }
-mcef = { group = "net.ccbluex", name = "mcef", version.ref = "mcef" }
-httpServer = { group = "net.ccbluex", name = "netty-httpserver", version.ref = "httpServer" }
 discordIpc = { group = "com.jagrosh", name = "DiscordIPC", version.ref = "discordIpc" }
 semver4j = { group = "com.vdurmont", name = "semver4j", version.ref = "semver4j" }
 ahocorasick = { group = "org.ahocorasick", name = "ahocorasick", version.ref = "ahocorasick" }
@@ -113,7 +106,6 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 gradleGitProperties = { id = "com.gorylenko.gradle-git-properties", version.ref = "gradleGitProperties" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
-nodeGradle = { id = "com.github.node-gradle.node", version.ref = "nodeGradle" }
 
 [bundles]
 okhttp = ["okhttp", "okhttp-coroutines"]

@@ -20,9 +20,7 @@ package net.ccbluex.liquidbounce.api.models.auth
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import net.ccbluex.liquidbounce.api.models.cosmetics.Cosmetic
 import net.ccbluex.liquidbounce.api.models.user.UserInformation
-import net.ccbluex.liquidbounce.api.services.auth.OAuthClient
 import net.ccbluex.liquidbounce.api.services.user.UserApi
 import net.ccbluex.liquidbounce.config.gson.stategies.Exclude
 import net.ccbluex.liquidbounce.utils.client.env
@@ -38,7 +36,7 @@ data class ClientAccount(
     @Exclude
     var userInformation: UserInformation? = null,
     @Exclude
-    var cosmetics: Set<Cosmetic>? = null
+    var cosmetics: Set<String>? = null
 ) {
     suspend fun takeSession(): OAuthSession = session?.takeIf { !it.accessToken.isExpired() } ?: run {
         renew()
@@ -50,7 +48,7 @@ data class ClientAccount(
     }
 
     suspend fun updateCosmetics(): Unit = withContext(Dispatchers.IO) {
-        cosmetics = UserApi.getCosmetics(takeSession())
+        // Cosmetic data is no longer available without the marketplace backend.
     }
 
     suspend fun transferTemporaryOwnership(uuid: UUID): Unit = withContext(Dispatchers.IO) {
@@ -58,7 +56,8 @@ data class ClientAccount(
     }
 
     suspend fun renew() = withContext(Dispatchers.IO) {
-        session = OAuthClient.renewToken(session ?: error("No session"))
+        // OAuth client has been removed alongside the web integration.
+        // Sessions are not persisted through the browser anymore.
     }
 
     companion object {

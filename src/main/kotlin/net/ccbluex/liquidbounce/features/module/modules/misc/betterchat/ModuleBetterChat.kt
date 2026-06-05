@@ -26,7 +26,6 @@ import net.ccbluex.liquidbounce.event.events.NotificationEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.suspendHandler
 import net.ccbluex.liquidbounce.features.command.CommandManager
-import net.ccbluex.liquidbounce.features.global.GlobalSettingsAutoTranslate
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.interfaces.GuiMessageLineAddition
@@ -156,14 +155,6 @@ object ModuleBetterChat : ClientModule("BetterChat", ModuleCategories.RENDER, al
         val plainMessage = event.message.stripMinecraftColorCodes()
         if (plainMessage.isBlank()) {
             return@suspendHandler
-        }
-
-        val result = GlobalSettingsAutoTranslate.translate(text = plainMessage)
-        if (result.isValid) {
-            chat(
-                result.toResultText(),
-                metadata = MessageMetadata(prefix = false)
-            )
         }
     }
 

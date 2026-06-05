@@ -23,7 +23,6 @@ import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.TitleEvent
 import net.ccbluex.liquidbounce.event.suspendHandler
-import net.ccbluex.liquidbounce.features.global.GlobalSettingsAutoTranslate
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.utils.text.asPlainText
@@ -60,11 +59,6 @@ private object AutoTranslate : ToggleableValueGroup(ModuleBetterTitle, "AutoTran
             ?.stripMinecraftColorCodes()
             ?.takeUnless(String::isBlank)
             ?: return@suspendHandler
-
-        val result = GlobalSettingsAutoTranslate.translate(text = string)
-        if (result.isValid && result is TranslationResult.Success) {
-            showIn.forEach { it.show(type, event, result) }
-        }
     }
 
     @Suppress("unused")

@@ -72,7 +72,6 @@ import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.logger
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.io.clientChannelAndGroup
-import net.ccbluex.netty.http.coroutines.syncSuspend
 import java.net.URI
 import java.util.UUID
 
@@ -177,8 +176,8 @@ class AxochatClient {
 
             })
 
-        channel = bootstrap.connect(uri.host, uri.port).syncSuspend().channel()!!
-        handler.handshakeFuture.syncSuspend()
+        channel = bootstrap.connect(uri.host, uri.port).sync().channel()!!
+        handler.handshakeFuture.sync()
     }.onFailure {
         EventManager.callEvent(ClientChatErrorEvent(it.localizedMessage ?: it.message ?: it.javaClass.name))
 
@@ -293,9 +292,9 @@ class AxochatClient {
                 return
             }
 
-            is S2CMessagePacket -> EventManager.callEvent(ClientChatMessageEvent(packet.user, packet.content,
+            is S2CMessagePacket -> EventManager.callEvent(ClientChatMessageEvent(packet.user.name, packet.content,
                 ClientChatMessageEvent.ChatGroup.PUBLIC_CHAT))
-            is S2CPrivateMessagePacket -> EventManager.callEvent(ClientChatMessageEvent(packet.user, packet.content,
+            is S2CPrivateMessagePacket -> EventManager.callEvent(ClientChatMessageEvent(packet.user.name, packet.content,
                 ClientChatMessageEvent.ChatGroup.PRIVATE_CHAT))
             is S2CErrorPacket -> {
                 // TODO: Replace with translation
