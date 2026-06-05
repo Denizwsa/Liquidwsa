@@ -35,8 +35,8 @@ import net.minecraft.util.Mth
  *
  * Renders the names of all enabled, in-game modules on the configured side
  * of the screen. Each module row fades in/out with a configurable duration.
- * Modules can be hidden individually via the internal [hidden] set (driven
- * by ClickGUI in a future iteration).
+ * A [ColorScheme] preset can be selected to override the colors instantly.
+ * Modules can be hidden individually via the [arrayListHidden] set.
  */
 @Suppress("MagicNumber")
 object ModuleArrayList : ClientModule(
@@ -45,6 +45,7 @@ object ModuleArrayList : ClientModule(
     state = true,
 ) {
 
+    private val colorScheme by enumChoice("ColorScheme", ColorScheme.LIQUID_BOUNCE)
     private val background by boolean("Background", true)
     private val outline by boolean("Outline", true)
     private val shadow by boolean("Shadow", true)
@@ -76,6 +77,64 @@ object ModuleArrayList : ClientModule(
     }
 
     /**
+     * Built-in color presets. Selecting one of these overrides the
+     * individual `textColor`/`tagColor`/`backgroundColor`/`outlineColor`
+     * settings. The [ColorScheme.CUSTOM] option uses the user-defined colors.
+     */
+    private enum class ColorScheme(
+        override val tag: String,
+        val textColor: Color4b,
+        val tagColor: Color4b,
+        val backgroundColor: Color4b,
+        val outlineColor: Color4b,
+    ) : Tagged {
+        LIQUID_BOUNCE(
+            "LiquidBounce",
+            Color4b(74, 143, 255, 255),
+            Color4b(170, 170, 170, 255),
+            Color4b(0, 0, 0, 110),
+            Color4b(0, 0, 0, 200),
+        ),
+        RED(
+            "Red",
+            Color4b(255, 64, 96, 255),
+            Color4b(255, 160, 170, 255),
+            Color4b(40, 8, 16, 140),
+            Color4b(80, 16, 32, 200),
+        ),
+        ORANGE(
+            "Orange",
+            Color4b(255, 144, 64, 255),
+            Color4b(255, 200, 160, 255),
+            Color4b(40, 24, 8, 140),
+            Color4b(80, 48, 16, 200),
+        ),
+        CYAN(
+            "Cyan",
+            Color4b(64, 224, 255, 255),
+            Color4b(180, 240, 255, 255),
+            Color4b(8, 28, 40, 140),
+            Color4b(16, 56, 80, 200),
+        ),
+        PINK(
+            "Pink",
+            Color4b(255, 96, 192, 255),
+            Color4b(255, 192, 224, 255),
+            Color4b(40, 12, 32, 140),
+            Color4b(80, 24, 64, 200),
+        ),
+        CUSTOM(
+            "Custom",
+            Color4b(255, 255, 255, 255),
+            Color4b(170, 170, 170, 255),
+            Color4b(0, 0, 0, 110),
+            Color4b(0, 0, 0, 200),
+        );
+
+        override fun toString() = tag
+    }
+
+    /**
      * Modules that should be excluded from the array list. Public so that
      * future ClickGUI or commands can toggle entries.
      */
@@ -88,7 +147,6 @@ object ModuleArrayList : ClientModule(
 
     @Suppress("unused")
     private val refreshHandler = handler<RefreshArrayListEvent> {
-        // Force a frame update so newly-bound tags become visible
         fadeState.keys.toList()
     }
 
@@ -105,7 +163,6 @@ object ModuleArrayList : ClientModule(
             .toList()
         if (modules.isEmpty()) return@handler
 
-        // Update fade state
         if (fadeAnimation) {
             val step = if (fadeDuration > 0) dtSec / (fadeDuration / 1000f) else 1f
             for (m in modules) {
@@ -118,7 +175,6 @@ object ModuleArrayList : ClientModule(
                 } else current
                 fadeState[m] = next
             }
-            // Remove fully-faded entries
             fadeState.entries.removeAll { (m, v) -> v <= 0.001f && !m.running }
         } else {
             for (m in modules) {
@@ -134,6 +190,13 @@ object ModuleArrayList : ClientModule(
             Sort.ALPHABET -> visible.sortedBy { displayNameWithTag(it).lowercase() }
         }
         if (sorted.isEmpty()) return@handler
+
+        // Resolve effective colors based on the active scheme
+        val scheme = colorScheme
+        val effectiveText = if (scheme == ColorScheme.CUSTOM) textColor else scheme.textColor
+        val effectiveTag = if (scheme == ColorScheme.CUSTOM) tagColor else scheme.tagColor
+        val effectiveBg = if (scheme == ColorScheme.CUSTOM) backgroundColor else scheme.backgroundColor
+        val effectiveOutline = if (scheme == ColorScheme.CUSTOM) outlineColor else scheme.outlineColor
 
         val screenWidth = context.guiWidth()
         val margin = 4
@@ -161,10 +224,10 @@ object ModuleArrayList : ClientModule(
                 }
             }
 
-            val bgAlpha = (backgroundColor.a * alpha).toInt().coerceIn(0, 255)
-            val outAlpha = (outlineColor.a * alpha).toInt().coerceIn(0, 255)
-            val textAlpha = (textColor.a * alpha).toInt().coerceIn(0, 255)
-            val tagAlpha = (tagColor.a * alpha).toInt().coerceIn(0, 255)
+            val bgAlpha = (effectiveBg.a * alpha).toInt().coerceIn(0, 255)
+            val outAlpha = (effectiveOutline.a * alpha).toInt().coerceIn(0, 255)
+            val textAlpha = (effectiveText.a * alpha).toInt().coerceIn(0, 255)
+            val tagAlpha = (effectiveTag.a * alpha).toInt().coerceIn(0, 255)
 
             if (background) {
                 with(context) {
@@ -172,7 +235,7 @@ object ModuleArrayList : ClientModule(
                         xBgStart.toFloat(), y.toFloat() - 1f,
                         xBgEnd.toFloat(), (y + lineHeight - 1).toFloat(), 2f,
                         fillColor = Color4b(
-                            backgroundColor.r, backgroundColor.g, backgroundColor.b, bgAlpha
+                            effectiveBg.r, effectiveBg.g, effectiveBg.b, bgAlpha
                         ),
                     )
                 }
@@ -184,34 +247,27 @@ object ModuleArrayList : ClientModule(
                         xBgEnd.toFloat(), (y + lineHeight - 1).toFloat(), 2f,
                         fillColor = Color4b.TRANSPARENT,
                         outlineColor = Color4b(
-                            outlineColor.r, outlineColor.g, outlineColor.b, outAlpha
+                            effectiveOutline.r, effectiveOutline.g, effectiveOutline.b, outAlpha
                         ),
                         outlineWidth = 1.0f,
                     )
                 }
             }
 
-            // Draw name
             context.text(
                 font, text,
                 xText, y,
-                (textColor.r shl 24) or (textColor.g shl 16) or (textColor.b shl 8) or textAlpha
-                    .let { Color4b(textColor.r, textColor.g, textColor.b, textAlpha).argb },
+                Color4b(effectiveText.r, effectiveText.g, effectiveText.b, textAlpha).argb,
                 shadow,
             )
 
-            // Draw tag
             if (tag != null) {
                 val nameW = font.width(text + " ")
-                val tagX = if (side == Side.RIGHT) {
-                    xText + nameW
-                } else {
-                    xText + nameW
-                }
+                val tagX = xText + nameW
                 context.text(
                     font, tag,
                     tagX, y,
-                    Color4b(tagColor.r, tagColor.g, tagColor.b, tagAlpha).argb,
+                    Color4b(effectiveTag.r, effectiveTag.g, effectiveTag.b, tagAlpha).argb,
                     shadow,
                 )
             }
