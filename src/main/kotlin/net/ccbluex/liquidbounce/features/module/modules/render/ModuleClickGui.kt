@@ -20,6 +20,7 @@ package net.ccbluex.liquidbounce.features.module.modules.render
 
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.render.gui.clickgui.NotificationRenderer
 import net.ccbluex.liquidbounce.render.gui.clickgui.SimpleClickGuiScreen
 import net.ccbluex.liquidbounce.utils.client.mc
 import org.lwjgl.glfw.GLFW
@@ -37,6 +38,15 @@ object ModuleClickGui : ClientModule(
     bind = GLFW.GLFW_KEY_RIGHT_SHIFT,
     state = false,
 ) {
+
+    /**
+     * Force-initializes the [NotificationRenderer] singleton so its event
+     * hooks are registered with the [net.ccbluex.liquidbounce.event.EventManager].
+     * Without this reference the Kotlin object would never be class-loaded
+     * and no notifications would fire.
+     */
+    @Suppress("unused")
+    private val notificationRendererRef: NotificationRenderer = NotificationRenderer
     /**
      * Re-sync the ClickGui after the module list or value registry changes.
      * No-op in the Java-side implementation; kept for source compatibility
