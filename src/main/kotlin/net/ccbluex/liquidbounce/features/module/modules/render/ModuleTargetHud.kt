@@ -57,7 +57,7 @@ object ModuleTargetHud : ClientModule("TargetHud", ModuleCategories.RENDER) {
     // Screen2D-specific
     private val screenOffsetX by int("ScreenOffsetX", 0, -400..400)
     private val screenOffsetY by int("ScreenOffsetY", 0, -400..400)
-    private val screenPosition by enumChoice("ScreenPosition", ScreenPosition.TOP_CENTER)
+    private val screenPosition by enumChoice("ScreenPosition", ScreenPosition.MIDDLE_RIGHT)
     private val screenStyle by enumChoice("ScreenStyle", ScreenStyle.VANILLA)
 
     // World3D-specific

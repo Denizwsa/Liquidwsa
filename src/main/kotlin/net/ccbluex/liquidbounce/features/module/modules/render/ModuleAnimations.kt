@@ -170,15 +170,18 @@ object ModuleAnimations : ClientModule("Animations", ModuleCategories.RENDER, al
     object PushdownAnimation : AnimationMode("Pushdown") {
 
         override fun transform(matrices: PoseStack, arm: HumanoidArm, equipProgress: Float, swingProgress: Float) {
-            matrices.translate(if (arm == HumanoidArm.RIGHT) -0.1f else 0.1f, 0.1f, 0.0f)
-
+            val f = 1.0f - equipProgress
             val g = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
+
+            // Push-down: block sırasında item aşağı ve hafif içeri
+            matrices.translate(if (arm == HumanoidArm.RIGHT) -0.05f else 0.05f, 0.05f, 0.0f)
+            matrices.mulPose(Axis.XP.rotationDegrees(f * -25.0f))
             matrices.mulPose(
                 Axis.ZP.rotationDegrees(
-                    (if (arm == HumanoidArm.RIGHT) 1 else -1) * g * 10.0f
+                    (if (arm == HumanoidArm.RIGHT) 1 else -1) * (f * 8.0f + g * 10.0f)
                 )
             )
-            matrices.mulPose(Axis.XP.rotationDegrees(g * -35.0f))
+            matrices.mulPose(Axis.XP.rotationDegrees(g * -20.0f))
         }
 
     }
@@ -195,11 +198,12 @@ object ModuleAnimations : ClientModule("Animations", ModuleCategories.RENDER, al
             val f = 1.0f - equipProgress
             val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
 
-            matrices.translate(0.0f, -0.1f, 0.0f)
-            applySwingOffset(matrices, arm, f / 2.0f)
-            matrices.translate(0.1f, 0.4f, -0.1f)
-            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 30.0f))
-            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 50.0f))
+            // 1.21+ first-person item boyutuna göre ayarlandı (offset %40, rotation %50)
+            matrices.translate(0.0f, -0.04f, 0.0f)
+            applySwingOffset(matrices, arm, f / 2.5f)
+            matrices.translate(0.04f, 0.16f, -0.04f)
+            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 15.0f))
+            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 25.0f))
         }
 
     }
@@ -216,9 +220,9 @@ object ModuleAnimations : ClientModule("Animations", ModuleCategories.RENDER, al
             val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
 
             applySwingOffset(matrices, arm, f * 0.5f)
-            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 27.5f))
-            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 45.0f))
-            matrices.translate(-0.1f, 0.3f, 0.1f)
+            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 14.0f))
+            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 22.0f))
+            matrices.translate(-0.04f, 0.12f, 0.04f)
         }
 
     }
@@ -235,12 +239,13 @@ object ModuleAnimations : ClientModule("Animations", ModuleCategories.RENDER, al
             val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
             val sine1 = Mth.sin(swingProgress * swingProgress * Math.PI)
 
-            matrices.translate(0.56f, -0.52f, -0.72f)
+            // 1.21+'da kılıcı %40'a küçültüyordu, %75'e çıkardık
+            matrices.translate(0.20f, -0.20f, -0.30f)
             matrices.mulPose(Axis.YP.rotationDegrees(45.0f))
             matrices.mulPose(Axis.YP.rotationDegrees(sine1 * -20.0f))
             matrices.mulPose(Axis.ZP.rotationDegrees(sine * -20.0f))
             matrices.mulPose(Axis.XP.rotationDegrees(sine * -40.0f))
-            matrices.scale(0.4f, 0.4f, 0.4f)
+            matrices.scale(0.75f, 0.75f, 0.75f)
         }
 
     }
@@ -294,9 +299,10 @@ object ModuleAnimations : ClientModule("Animations", ModuleCategories.RENDER, al
             val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
 
             applySwingOffset(matrices, arm, f)
-            matrices.translate(0.1f, 0.2f, 0.3f)
-            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 30.0f))
-            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 10.0f))
+            // 1.21+'da offset %40'a indirildi
+            matrices.translate(0.04f, 0.08f, 0.12f)
+            matrices.mulPose(Axis.ZP.rotationDegrees(-sine * 15.0f))
+            matrices.mulPose(Axis.YP.rotationDegrees(-sine * 5.0f))
         }
 
     }
@@ -313,9 +319,10 @@ object ModuleAnimations : ClientModule("Animations", ModuleCategories.RENDER, al
             val sine = Mth.sin(Mth.sqrt(swingProgress) * Math.PI)
             val sine1 = Mth.sin(swingProgress * swingProgress * Math.PI)
 
-            matrices.translate(0.56f, -0.42f, -0.72f)
-            matrices.translate(0.1f * sine, 0.0f, -0.22f * sine)
-            matrices.translate(0.0f, sine1 * -0.15f, 0.0f)
+            // 1.21+'da offset %35, sine translate %50 azaltıldı
+            matrices.translate(0.20f, -0.15f, -0.30f)
+            matrices.translate(0.05f * sine, 0.0f, -0.11f * sine)
+            matrices.translate(0.0f, sine1 * -0.08f, 0.0f)
             matrices.mulPose(Axis.YP.rotationDegrees(sine1 * 45.0f))
             matrices.mulPose(Axis.YP.rotationDegrees(sine1 * -20.0f))
             matrices.mulPose(Axis.ZP.rotationDegrees(sine * -20.0f))
