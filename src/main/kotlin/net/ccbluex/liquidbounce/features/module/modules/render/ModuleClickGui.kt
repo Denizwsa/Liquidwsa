@@ -20,15 +20,15 @@ package net.ccbluex.liquidbounce.features.module.modules.render
 
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.render.gui.clickgui.ClickGuiScreen
 import net.ccbluex.liquidbounce.render.gui.clickgui.NotificationRenderer
-import net.ccbluex.liquidbounce.render.gui.clickgui.SimpleClickGuiScreen
 import net.ccbluex.liquidbounce.utils.client.mc
 import org.lwjgl.glfw.GLFW
 
 /**
  * Java-side ClickGui module.
  *
- * Tapping Right Shift toggles the [SimpleClickGuiScreen] in-game. The module
+ * Tapping Right Shift toggles the [ClickGuiScreen] in-game. The module
  * is a normal toggle: when enabled, the GUI is opened and the module is
  * immediately disabled so the next press opens it again.
  */
@@ -62,7 +62,7 @@ object ModuleClickGui : ClientModule(
         if (mc.player == null) {
             return
         }
-        mc.setScreen(SimpleClickGuiScreen())
+        mc.setScreen(ClickGuiScreen())
         // Re-enabling is handled by the next bind press, so reset the toggle
         // immediately to keep the clickgui purely bind-driven.
         this.enabled = false

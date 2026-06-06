@@ -71,6 +71,7 @@ object ModuleArrayList : ClientModule(
 
     private enum class Sort(override val tag: String) : Tagged {
         WIDTH("width"),
+        LENGTH("length"),
         ALPHABET("alphabet");
 
         override fun toString() = tag
@@ -187,6 +188,7 @@ object ModuleArrayList : ClientModule(
 
         val sorted = when (sort) {
             Sort.WIDTH -> visible.sortedByDescending { font.width(displayNameWithTag(it)) }
+            Sort.LENGTH -> visible.sortedByDescending { displayNameWithTag(it).length }
             Sort.ALPHABET -> visible.sortedBy { displayNameWithTag(it).lowercase() }
         }
         if (sorted.isEmpty()) return@handler
