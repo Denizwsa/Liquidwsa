@@ -29,6 +29,7 @@ import net.ccbluex.liquidbounce.config.types.list.MultiChoiceListValue
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.gui.clickgui.ClickGuiTheme
+import net.ccbluex.liquidbounce.render.gui.clickgui.spacedName
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.input.InputBind
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -42,27 +43,64 @@ private const val SLIDER_KNOB: Int = 8
 private const val ARROW_W: Int = 10
 
 /**
- * Dispatches a [Value] to the most appropriate [GenericSetting] widget based
- * on its runtime [ValueType]. Returns `null` for value types the GUI does
- * not yet render (curves, vectors, registry lists, etc.).
+ * Dispatches a [Value] to the most appropriate [GenericSetting] widget.
+ * Exhaustive over [ValueType] – every known type produces a widget.
+ * Unknown / unhandled subtypes gracefully degrade to a read-only
+ * [FallbackSetting] so the Y‑offset never breaks.
  */
 fun createSetting(value: Value<*>): GenericSetting? {
     if (value.doNotInclude.asBoolean || value.notAnOption) return null
 
     @Suppress("UNCHECKED_CAST")
-    return when {
+    val widget: GenericSetting = when {
+        // Dedicated sub‑class checks (must come before generic valueType dispatch)
         value is ModeValueGroup<*> -> ModeGroupSetting(value)
         value is MultiChoiceListValue<*> -> MultiEnumSetting(value as MultiChoiceListValue<Tagged>)
         value is ChoiceListValue<*> -> ChoiceSetting(value as ChoiceListValue<Tagged>)
         value is BindValue -> BindSetting(value)
-        value.valueType == ValueType.COLOR -> ColorSetting(value as Value<Color4b>)
         value is RangedValue<*> -> when (value.valueType) {
             ValueType.INT -> IntSetting(value)
             ValueType.FLOAT -> FloatSetting(value)
-            else -> null
+            ValueType.INT_RANGE -> IntRangeSetting(value)
+            ValueType.FLOAT_RANGE -> fallback(value)
+            else -> fallback(value)
         }
-        value.valueType == ValueType.BOOLEAN -> BooleanSetting(value as Value<Boolean>)
-        else -> null
+        // ValueType-based dispatch (for types not matched by dedicated sub‑class checks above)
+        else -> when (value.valueType) {
+            ValueType.BOOLEAN -> BooleanSetting(value as Value<Boolean>)
+            ValueType.COLOR -> ColorSetting(value as Value<Color4b>)
+            ValueType.TEXT -> TextSetting(value as Value<String>)
+            else -> fallback(value)
+        }
+    }
+    return widget
+}
+
+// ── Fallback ──────────────────────────────────────────────────────────────
+
+/**
+ * Creates a read‑only placeholder row for value types that lack a dedicated
+ * widget implementation. The row preserves vertical spacing and displays the
+ * value's name + current value in a dimmed style so the user can see that
+ * the setting exists even when the GUI can't yet edit it.
+ */
+private fun fallback(value: Value<*>): GenericSetting = FallbackSetting(value)
+
+private class FallbackSetting(override val value: Value<*>) : GenericSetting() {
+    override val height: Int = ROW_HEIGHT
+
+    override fun render(
+        context: GuiGraphicsExtractor,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
+        partialTick: Float,
+        hovered: Boolean,
+    ): Int {
+        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
+        val text = "${displayName}: ${value.get()}"
+        context.drawTextClipped(text, x + 4, y + (ROW_HEIGHT - 8) / 2,
+            ClickGuiTheme.valueTextDimmed, width - 8)
+        return ROW_HEIGHT
     }
 }
 
@@ -194,6 +232,71 @@ class IntSetting(override val value: RangedValue<*>) : GenericSetting() {
             return true
         }
         return false
+    }
+}
+
+/**
+ * Displays an [IntRange] (e.g. `1..20`). Click left half to increase the
+ * lower bound, click right half to increase the upper bound. Right‑click
+ * decreases instead. Shift‑click jumps by 10.
+ *
+ * Unlike [IntSetting] this widget has no slider — the compact two‑value
+ * layout fits the same row height as the other settings.
+ */
+class IntRangeSetting(override val value: RangedValue<*>) : GenericSetting() {
+    override val height: Int = ROW_HEIGHT
+    private var rowX: Int = 0
+    private var rowW: Int = 0
+
+    @Suppress("UNCHECKED_CAST")
+    private val typed: RangedValue<IntRange>
+        get() = value as RangedValue<IntRange>
+
+    private fun rangeMin(): Int = (value.range as IntRange).first
+    private fun rangeMax(): Int = (value.range as IntRange).last
+
+    override fun render(
+        context: GuiGraphicsExtractor,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
+        partialTick: Float,
+        hovered: Boolean,
+    ): Int {
+        rowX = x
+        rowW = width
+        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
+        context.drawTextClipped(
+            displayName, x + 4, y + (ROW_HEIGHT - 8) / 2,
+            if (hovered) ClickGuiTheme.textNormal else ClickGuiTheme.textDimmed,
+            width - 60
+        )
+        val range = typed.get()
+        val text = "${range.first} - ${range.last}"
+        val tw = mc.font.width(text)
+        context.text(mc.font, text, x + width - tw - 4, y + (ROW_HEIGHT - 8) / 2,
+            ClickGuiTheme.textNormal.argb, true)
+        return ROW_HEIGHT
+    }
+
+    override fun mouseClicked(mouseX: Int, mouseY: Int, button: Int): Boolean {
+        val range = typed.get()
+        val delta = when (button) {
+            0 -> 1
+            1 -> -1
+            else -> return false
+        }
+        val mid = rowX + rowW / 2
+        val curMin = range.first
+        val curMax = range.last
+        val (newMin, newMax) = if (mouseX < mid) {
+            curMin + delta to curMax
+        } else {
+            curMin to curMax + delta
+        }
+        val clampedMin = newMin.coerceIn(rangeMin(), curMax)
+        val clampedMax = newMax.coerceIn(curMin, rangeMax())
+        typed.set(clampedMin..clampedMax)
+        return true
     }
 }
 
@@ -387,16 +490,23 @@ class ColorSetting(override val value: Value<Color4b>) : GenericSetting() {
     }
 }
 
+/**
+ * Multi‑select list. Shows selected item tags as a compact comma‑separated
+ * list. **Left‑click** selects the first currently‑unselected choice;
+ * **right‑click** deselects the most recently selected choice.
+ */
 class MultiEnumSetting(override val value: MultiChoiceListValue<*>) : GenericSetting() {
     override val height: Int = ROW_HEIGHT
 
+    private val typed: MultiChoiceListValue<Tagged>
+        @Suppress("UNCHECKED_CAST")
+        get() = value as MultiChoiceListValue<Tagged>
+
+    @Suppress("UNCHECKED_CAST")
     override fun render(
         context: GuiGraphicsExtractor,
-        x: Int,
-        y: Int,
-        width: Int,
-        mouseX: Int,
-        mouseY: Int,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
         partialTick: Float,
         hovered: Boolean,
     ): Int {
@@ -404,26 +514,37 @@ class MultiEnumSetting(override val value: MultiChoiceListValue<*>) : GenericSet
         context.drawTextClipped(
             displayName, x + 4, y + (ROW_HEIGHT - 8) / 2,
             if (hovered) ClickGuiTheme.textNormal else ClickGuiTheme.textDimmed,
-            width - 50
+            width - 60
         )
-        val selected = value.get().size
-        val total = value.choices.size
-        val summary = "$selected / $total"
+        val selected = value.get()
+        val tags = selected.joinToString(", ") { (it as Tagged).tag }
+        val summary = if (tags.length <= 28) tags else "${selected.size} / ${value.choices.size}"
         val tw = mc.font.width(summary)
-        context.text(mc.font, summary, x + width - tw - 4, y + (ROW_HEIGHT - 8) / 2, ClickGuiTheme.textNormal.argb, true)
+        context.text(mc.font, summary, x + width - tw - 4, y + (ROW_HEIGHT - 8) / 2,
+            ClickGuiTheme.textNormal.argb, true)
         return ROW_HEIGHT
     }
 
     override fun mouseClicked(mouseX: Int, mouseY: Int, button: Int): Boolean {
-        if (button != 0) return false
+        val choices = value.choices.toList()
         val current = value.get()
-        val choices = value.choices
-        val next = choices.firstOrNull { it !in current } ?: choices.firstOrNull()
-        if (next != null) {
-            @Suppress("UNCHECKED_CAST")
-            (value as MultiChoiceListValue<Tagged>).toggle(next)
+        if (button == 0) {
+            val next = choices.firstOrNull { it !in current }
+            if (next != null) {
+                typed.toggle(next)
+                return true
+            }
+            return false
         }
-        return true
+        if (button == 1) {
+            val last = current.lastOrNull()
+            if (last != null) {
+                typed.toggle(last)
+                return true
+            }
+            return false
+        }
+        return false
     }
 }
 
@@ -511,5 +632,27 @@ class BindSetting(override val value: BindValue) : GenericSetting() {
         value.set(InputBind(current.boundKey.type, keyCode, current.action))
         waitingForKey = false
         return true
+    }
+}
+
+/**
+ * Read‑only display for [ValueType.TEXT] values. Shows the current string
+ * and preserves the Y‑offset without allowing inline editing.
+ */
+class TextSetting(override val value: Value<String>) : GenericSetting() {
+    override val height: Int = ROW_HEIGHT
+
+    override fun render(
+        context: GuiGraphicsExtractor,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
+        partialTick: Float,
+        hovered: Boolean,
+    ): Int {
+        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
+        val text = "${displayName}: ${value.get()}"
+        context.drawTextClipped(text, x + 4, y + (ROW_HEIGHT - 8) / 2,
+            ClickGuiTheme.valueTextDimmed, width - 8)
+        return ROW_HEIGHT
     }
 }

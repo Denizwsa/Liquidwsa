@@ -19,6 +19,7 @@
 package net.ccbluex.liquidbounce.render.gui.clickgui.setting
 
 import net.ccbluex.liquidbounce.config.types.Value
+import net.ccbluex.liquidbounce.render.gui.clickgui.spacedName
 import net.minecraft.client.gui.GuiGraphicsExtractor
 
 /**
@@ -62,9 +63,9 @@ abstract class GenericSetting {
     open fun onFocusLost() {}
 
     /**
-     * Localized display name for the value. Falls back to the raw `name`
-     * when no translation key is registered.
+     * Display name derived from the value's internal name by splitting
+     * camelCase into words. Never shows raw translation keys.
      */
     open val displayName: String
-        get() = runCatching { value.description.get() }.getOrNull() ?: value.name
+        get() = spacedName(value.name)
 }

@@ -70,6 +70,7 @@ class ModuleElement(val module: ClientModule) {
         if (expandProgress < 0.01f) expandProgress = 0f
 
         val isHovered = mouseX in x..(x + width) && mouseY in y..(y + ClickGuiTheme.moduleRowHeight)
+        context.fill(x, y, x + width, y + ClickGuiTheme.moduleRowHeight, ClickGuiTheme.moduleRowBg.argb)
         if (isHovered) {
             context.fill(x, y, x + width, y + ClickGuiTheme.moduleRowHeight, ClickGuiTheme.moduleHoverBg.argb)
         }
@@ -84,7 +85,6 @@ class ModuleElement(val module: ClientModule) {
         }
         val textY = y + (ClickGuiTheme.moduleRowHeight - 8) / 2
         val name = spacedName(module.name)
-        val maxNameW = width - 16 - (if (settings.isNotEmpty()) 12 else 0)
         context.text(mc.font, name, x + 8, textY, color.argb, true)
 
         if (settings.isNotEmpty()) {
@@ -101,18 +101,22 @@ class ModuleElement(val module: ClientModule) {
         }
 
         if (expandProgress > 0f) {
-            val innerWidth = width - 12
-            val innerX = x + 6
+            val innerPad = 10
+            val innerWidth = width - innerPad * 2
+            val innerX = x + innerPad
             var sy = y + ClickGuiTheme.moduleRowHeight + (2 * expandProgress).toInt()
+            // Full settings-panel background (covers all rows)
+            val panelBottom = (sy + (settings.sumOf { it.height } * expandProgress).toInt()).coerceAtLeast(sy)
+            context.fill(innerX - 2, sy, x + width - innerPad + 2, panelBottom, ClickGuiTheme.settingsPanelBg.argb)
             // Left accent bar
-            val accentX = innerX - 2
-            val accentEndY = sy + (settings.sumOf { it.height } * expandProgress).toInt()
-            context.fill(accentX, sy, accentX + 2, accentEndY, ClickGuiTheme.settingsBorder.argb)
+            context.fill(innerX - 2, sy, innerX, panelBottom, ClickGuiTheme.settingsBorder.argb)
             for (s in settings) {
-                val used = s.render(
-                    context, innerX, sy, innerWidth, mouseX, mouseY, partialTick,
-                    mouseX in innerX..(innerX + innerWidth) && mouseY in sy..(sy + s.height)
-                )
+                val hovered = mouseX in innerX..(innerX + innerWidth) && mouseY in sy..(sy + s.height)
+                val used = try {
+                    s.render(context, innerX, sy, innerWidth, mouseX, mouseY, partialTick, hovered)
+                } catch (_: Exception) {
+                    s.height
+                }
                 if (expandProgress < 1f) {
                     break
                 }
@@ -133,8 +137,9 @@ class ModuleElement(val module: ClientModule) {
             }
         }
         if (expandProgress > 0.5f && expanded) {
-            val innerX = x + 6
-            val innerWidth = width - 12
+            val innerPad = 10
+            val innerX = x + innerPad
+            val innerWidth = width - innerPad * 2
             var sy = y + ClickGuiTheme.moduleRowHeight + 2
             for (s in settings) {
                 if (mouseX in innerX..(innerX + innerWidth) && mouseY in sy..(sy + s.height)) {
@@ -148,8 +153,9 @@ class ModuleElement(val module: ClientModule) {
 
     fun handleMouseRelease(mouseX: Int, mouseY: Int, x: Int, y: Int, width: Int, button: Int): Boolean {
         if (!expanded) return false
-        val innerX = x + 6
-        val innerWidth = width - 12
+        val innerPad = 10
+        val innerX = x + innerPad
+        val innerWidth = width - innerPad * 2
         var sy = y + ClickGuiTheme.moduleRowHeight + 2
         var handled = false
         for (s in settings) {
@@ -163,8 +169,9 @@ class ModuleElement(val module: ClientModule) {
 
     fun handleMouseDrag(mouseX: Int, mouseY: Int, x: Int, y: Int, width: Int, button: Int, dragX: Double, dragY: Double): Boolean {
         if (!expanded) return false
-        val innerX = x + 6
-        val innerWidth = width - 12
+        val innerPad = 10
+        val innerX = x + innerPad
+        val innerWidth = width - innerPad * 2
         var sy = y + ClickGuiTheme.moduleRowHeight + 2
         var handled = false
         for (s in settings) {
@@ -196,9 +203,6 @@ class ModuleElement(val module: ClientModule) {
 
     fun aliases(): List<String> = module.aliases
 
-    private fun spacedName(name: String): String =
-        name.replace("([a-z])([A-Z])".toRegex(), "$1 $2").replace("_", " ")
-
     companion object {
         /**
          * Walks a [ClientModule]'s value tree and yields the user-facing
@@ -227,3 +231,6 @@ class ModuleElement(val module: ClientModule) {
         }
     }
 }
+
+internal fun spacedName(name: String): String =
+    name.replace("([a-z])([A-Z])".toRegex(), "$1 $2").replace("_", " ")

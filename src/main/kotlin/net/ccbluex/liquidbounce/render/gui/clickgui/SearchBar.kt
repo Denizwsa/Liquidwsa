@@ -128,7 +128,7 @@ class SearchBar(private val onSelect: (ClientModule) -> Unit) {
             if (ry + ClickGuiTheme.searchResultHeight > mc.window.guiScaledHeight - 8) break
             val rowBg = if (idx == selectedIndex) ClickGuiTheme.searchResultSelected.argb else ClickGuiTheme.searchBarBg.argb
             context.fill(x, ry, x + w, ry + ClickGuiTheme.searchResultHeight, rowBg)
-            val label = if (idx == selectedIndex && focused) "▸ ${module.name}" else module.name
+            val label = if (idx == selectedIndex && focused) "▸ ${spacedName(module.name)}" else spacedName(module.name)
             context.text(
                 mc.font, label, x + 6, ry + 3,
                 if (module.enabled) ClickGuiTheme.moduleEnabled.argb else ClickGuiTheme.textNormal.argb,

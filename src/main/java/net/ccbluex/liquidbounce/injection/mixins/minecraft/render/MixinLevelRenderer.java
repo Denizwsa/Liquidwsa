@@ -109,7 +109,13 @@ public abstract class MixinLevelRenderer {
         }
 
         var matrixStack = Pools.MatStack.borrow();
-        entityOutlineFb.blitToScreen();
+        try {
+            entityOutlineFb.blitToScreen();
+        } catch (UnsupportedOperationException e) {
+            // VulkanMod does not support blitToScreen() — glow rendering is skipped
+            Pools.MatStack.recycle(matrixStack);
+            return;
+        }
         final var cameraState = this.minecraft.gameRenderer.getGameRenderState().levelRenderState.cameraRenderState;
         var event = new DrawOutlinesEvent(
             entityOutlineFb, matrixStack,

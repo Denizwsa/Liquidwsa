@@ -28,10 +28,12 @@ import net.ccbluex.liquidbounce.render.engine.type.Color4b
 object ClickGuiTheme {
     val textDimmed = Color4b(170, 170, 170, 255)
     val textNormal = Color4b(255, 255, 255, 255)
+    val moduleRowBg = Color4b(0, 0, 0, 20)
     val moduleHoverBg = Color4b(255, 255, 255, 13)
     val moduleEnabled = Color4b(74, 143, 255, 255)
     val moduleHighlight = Color4b(255, 200, 80, 255)
-    val settingsBg = Color4b(0, 0, 0, 77)
+    val settingsBg = Color4b(0, 0, 0, 90)
+    val settingsPanelBg = Color4b(0, 0, 0, 55)
     val settingsBorder = Color4b(74, 143, 255, 255)
     val panelBg = Color4b(20, 20, 20, 230)
     val panelHeaderBg = Color4b(40, 40, 40, 240)

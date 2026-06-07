@@ -415,10 +415,18 @@ object ClientRenderPipelines {
         JCEF
         GUI
 
+        var succeeded = 0
+        var failed = 0
         renderPipelines.fastIterator().forEach { (_, pipeline) ->
-            gpuDevice.precompilePipeline(pipeline, ClientShaders)
+            try {
+                gpuDevice.precompilePipeline(pipeline, ClientShaders)
+                succeeded++
+            } catch (e: Exception) {
+                failed++
+                logger.warn("Failed to precompile pipeline", e)
+            }
         }
-        logger.info("Loaded ${renderPipelines.size} Render Pipelines.")
+        logger.info("Loaded $succeeded Render Pipelines ($failed failed).")
     }
 
 }
