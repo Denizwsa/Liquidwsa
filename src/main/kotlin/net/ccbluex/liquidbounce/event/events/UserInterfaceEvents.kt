@@ -22,9 +22,9 @@ package net.ccbluex.liquidbounce.event.events
 import net.ccbluex.liquidbounce.annotations.Tag
 import net.ccbluex.liquidbounce.event.CancellableEvent
 import net.ccbluex.liquidbounce.event.Event
-import net.ccbluex.liquidbounce.integration.interop.protocol.event.WebSocketEvent
-import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.PlayerData
-import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.PlayerInventoryData
+import net.ccbluex.liquidbounce.event.WebSocketEvent
+import net.ccbluex.liquidbounce.event.protocol.PlayerData
+import net.ccbluex.liquidbounce.event.protocol.PlayerInventoryData
 import net.minecraft.network.chat.Component
 import net.minecraft.world.effect.MobEffectInstance
 

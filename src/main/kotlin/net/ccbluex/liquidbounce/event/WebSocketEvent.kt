@@ -16,12 +16,11 @@
  * You should have received a copy of the GNU General Public License
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
-package net.ccbluex.liquidbounce.event.events
-
-import net.ccbluex.liquidbounce.event.Event
-import net.ccbluex.liquidbounce.event.WebSocketEvent
+package net.ccbluex.liquidbounce.event
 
 /**
- * Marker kept for source compatibility after the web integration was removed.
+ * Marker interface kept for source compatibility with events that used to be
+ * forwarded to the WebGUI/WebSocket layer. Has no runtime effect after the
+ * CEF integration was removed; new code should not implement it.
  */
-object CommunicationEvent : Event(), WebSocketEvent
+interface WebSocketEvent

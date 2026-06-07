@@ -58,11 +58,6 @@ lwjgl = "3.4.1"
 detekt = "2.0.0-alpha.3"
 gradleGitProperties = "3.0.3"
 dokka = "2.2.0"
-nodeGradle = "7.1.0"
-
-# JCEF (Minecraft Chromium Embedded Framework)
-mcef = "3.3.1-26.1-SNAPSHOT"
-httpServer = "2.6.1"
 
 [libraries]
 minecraft = { group = "com.mojang", name = "minecraft", version.ref = "minecraft" }
@@ -84,10 +79,6 @@ semver4j = { group = "com.vdurmont", name = "semver4j", version.ref = "semver4j"
 ahocorasick = { group = "org.ahocorasick", name = "ahocorasick", version.ref = "ahocorasick" }
 fastutil4k-extensionsOnly = { group = "net.ccbluex", name = "fastutil4k-extensions-only", version.ref = "fastutil4k" }
 fastutil4k-moreCollections = { group = "net.ccbluex", name = "fastutil4k-more-collections", version.ref = "fastutil4k" }
-
-# JCEF (CCBlueX's MCEF - Minecraft Chromium Embedded Framework)
-mcef = { group = "net.ccbluex", name = "mcef", version.ref = "mcef" }
-httpServer = { group = "net.ccbluex", name = "netty-httpserver", version.ref = "httpServer" }
 
 polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.ref = "polyglot" }
 polyglot-tools = { group = "org.graalvm.polyglot", name = "tools-community", version.ref = "polyglot" }
@@ -115,7 +106,5 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 gradleGitProperties = { id = "com.gorylenko.gradle-git-properties", version.ref = "gradleGitProperties" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
-nodeGradle = { id = "com.github.node-gradle.node", version.ref = "nodeGradle" }
-
 [bundles]
 okhttp = ["okhttp", "okhttp-coroutines"]

@@ -16,12 +16,20 @@
  * You should have received a copy of the GNU General Public License
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
-package net.ccbluex.liquidbounce.event.events
-
-import net.ccbluex.liquidbounce.event.Event
-import net.ccbluex.liquidbounce.event.WebSocketEvent
+package net.ccbluex.liquidbounce.utils.task
 
 /**
- * Marker kept for source compatibility after the web integration was removed.
+ * Minimal progress-tracking task used by DJL deep learning. Replaces the
+ * richer `integration.task.Task` stub that used to live in the WebGUI core
+ * with a single-state marker so call sites compile without WebSocket fan-out.
  */
-object CommunicationEvent : Event(), WebSocketEvent
+class Task(val name: String) {
+    val subTasks: MutableList<Task> = mutableListOf()
+
+    var isCompleted: Boolean = false
+        private set
+
+    fun complete() {
+        isCompleted = true
+    }
+}

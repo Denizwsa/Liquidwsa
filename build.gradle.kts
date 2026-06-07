@@ -17,8 +17,6 @@
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import com.github.gradle.node.npm.task.NpmTask
-import com.github.gradle.node.task.NodeTask
 import dev.detekt.gradle.DetektCreateBaselineTask
 import groovy.json.JsonOutput
 import org.gradle.kotlin.dsl.support.listFilesOrdered
@@ -29,7 +27,6 @@ plugins {
     alias(libs.plugins.gradleGitProperties)
     alias(libs.plugins.detekt)
     alias(libs.plugins.dokka)
-    alias(libs.plugins.nodeGradle)
 }
 
 base {
@@ -158,10 +155,6 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 
-    // JCEF Support (ClickGui / Hud via Chromium Embedded Framework)
-    api(libs.mcef)
-    include(libs.mcef)
-    jij(libs.httpServer)
 }
 
 addResolvedDependencies(jij, "compileOnly", "include", "api")
@@ -196,14 +189,6 @@ addResolvedDependencies(jij, "compileOnly", "include", "api")
 //     inputs.dir("src-theme/dist")
 //     outputs.files("src-theme/resources/assets/liquidbounce/themes/liquidbounce.zip")
 // }
-
-sourceSets {
-    main {
-        resources {
-            srcDirs("src-theme/resources")
-        }
-    }
-}
 
 tasks.processResources {
 
