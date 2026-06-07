@@ -19,29 +19,19 @@
 
 package net.ccbluex.liquidbounce.injection.mixins.minecraft.render;
 
-import com.llamalad7.mixinextras.sugar.Local;
-import com.mojang.blaze3d.vertex.MeshData;
 import net.ccbluex.liquidbounce.utils.collection.GenericPools;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import org.jspecify.annotations.NullMarked;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.HashMap;
-import java.util.Map;
-
+/**
+ * This mixin used to recycle the textures HashMap in RenderType#draw
+ * via MixinExtras @Local injection, but the method structure changed
+ * in 26.1.2 (new render pipeline). The optimization is not critical
+ * — left as a no-op mixin to avoid deleting the registration entry.
+ */
 @NullMarked
 @Mixin(RenderType.class)
 public abstract class MixinRenderType {
-
-    @SuppressWarnings("rawtypes")
-    @Inject(method = "draw", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderPass;close()V"))
-    private void recycleHashMap(MeshData mesh, CallbackInfo ci, @Local(name = "textures") Map textures) {
-        if (textures instanceof HashMap hashMap) {
-            GenericPools.HASH_MAP.recycle(hashMap);
-        }
-    }
 
 }
