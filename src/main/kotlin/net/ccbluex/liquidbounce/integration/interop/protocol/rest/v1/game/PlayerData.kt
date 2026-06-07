@@ -7,33 +7,36 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * LiquidBounce is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
 package net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game
 
-import net.minecraft.world.entity.player.Player
-
 /**
- * Minimal player data holder kept as a stub after the web integration was
- * removed. The data is no longer transmitted over the network, but events
- * that previously carried it still need a non-null type to compile.
+ * Stub for the upstream data class that the Svelte side used to
+ * serialise the local player. The minimal WebGUI core doesn't need a
+ * real implementation because the interop server is also stubbed.
+ *
+ * Keep the field set as small as possible — only the bits referenced
+ * from [net.ccbluex.liquidbounce.event.events.ClientEvents] /
+ * `UserInterfaceEvents` / `CombatManager` are populated.
  */
 data class PlayerData(
-    val name: String,
-    val uuid: String,
+    val username: String = "",
+    val uuid: String? = null,
+    val ping: Int = 0,
+    val gameMode: String = "survival",
 ) {
     companion object {
-        @JvmStatic
-        fun fromPlayer(player: Player): PlayerData = PlayerData(
-            name = player.gameProfile.name,
-            uuid = player.uuid.toString(),
-        )
+        /** Empty data set, used when we don't have a real player. */
+        fun fromPlayer(@Suppress("UNUSED_PARAMETER") player: Any?): PlayerData = PlayerData()
+    }
+}
+
+/** Stub for the player's inventory state. */
+data class PlayerInventoryData(
+    val items: List<String> = emptyList(),
+) {
+    companion object {
+        fun fromPlayer(@Suppress("UNUSED_PARAMETER") player: Any?): PlayerInventoryData =
+            PlayerInventoryData()
     }
 }

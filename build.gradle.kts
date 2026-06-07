@@ -17,6 +17,8 @@
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import com.github.gradle.node.npm.task.NpmTask
+import com.github.gradle.node.task.NodeTask
 import dev.detekt.gradle.DetektCreateBaselineTask
 import groovy.json.JsonOutput
 import org.gradle.kotlin.dsl.support.listFilesOrdered
@@ -27,6 +29,7 @@ plugins {
     alias(libs.plugins.gradleGitProperties)
     alias(libs.plugins.detekt)
     alias(libs.plugins.dokka)
+    alias(libs.plugins.nodeGradle)
 }
 
 base {
@@ -154,11 +157,56 @@ dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
+
+    // JCEF Support (ClickGui / Hud via Chromium Embedded Framework)
+    api(libs.mcef)
+    include(libs.mcef)
+    jij(libs.httpServer)
 }
 
 addResolvedDependencies(jij, "compileOnly", "include", "api")
 
+// Svelte theme is bundled separately by the developer with
+// `cd src-theme && npm install && npm run build`. The compiled theme
+// can be dropped into `src-theme/resources/assets/liquidbounce/themes/`
+// before running the `bundleTheme` task. If the file isn't present,
+// `processResources` will simply skip it and the CEF browser will show
+// `about:blank` (handled by the ThemeManager fallback).
+//
+// tasks.register<NpmTask>("npmInstallTheme") {
+//     workingDir = file("src-theme")
+//     args.set(listOf("i", "--no-audit", "--no-fund"))
+//     inputs.files("src-theme/package.json", "src-theme/package-lock.json")
+//     outputs.dir("src-theme/node_modules")
+// }
+//
+// tasks.register<NpmTask>("buildTheme") {
+//     dependsOn("npmInstallTheme")
+//     workingDir = file("src-theme")
+//     args.set(listOf("run", "build"))
+//     inputs.dir("src-theme/src")
+//     inputs.dir("src-theme/public")
+//     outputs.dir("src-theme/dist")
+// }
+//
+// tasks.register<NodeTask>("bundleTheme") {
+//     dependsOn("buildTheme")
+//     workingDir = file("src-theme")
+//     script = file("src-theme/bundle.cjs")
+//     inputs.dir("src-theme/dist")
+//     outputs.files("src-theme/resources/assets/liquidbounce/themes/liquidbounce.zip")
+// }
+
+sourceSets {
+    main {
+        resources {
+            srcDirs("src-theme/resources")
+        }
+    }
+}
+
 tasks.processResources {
+
     val modVersion = providers.gradleProperty("mod_version")
     val minecraftVersion = providers.gradleProperty("mod_mc_version")
     val fabricVersion = libs.versions.fabric.api
