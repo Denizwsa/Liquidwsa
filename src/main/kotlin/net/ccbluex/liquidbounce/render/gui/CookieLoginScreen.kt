@@ -36,8 +36,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.util.concurrent.CompletableFuture
-import javax.swing.JFileChooser
-import javax.swing.filechooser.FileNameExtensionFilter
 
 class CookieLoginScreen(private val parent: Screen?) : Screen(Component.literal("Cookie Login")) {
 
@@ -77,15 +75,13 @@ class CookieLoginScreen(private val parent: Screen?) : Screen(Component.literal(
         if (logging || loginSuccess) return
         CompletableFuture.supplyAsync {
             try {
-                val frame = javax.swing.JFrame()
-                frame.isAlwaysOnTop = true
-                val chooser = JFileChooser()
-                chooser.dialogTitle = "Select Cookie File"
-                chooser.fileFilter = FileNameExtensionFilter("Cookie Files (*.txt, *.cookie, cookies)", "txt", "cookie", "csv")
-                val result = chooser.showOpenDialog(frame)
-                frame.dispose()
-                if (result == JFileChooser.APPROVE_OPTION) {
-                    chooser.selectedFile.readText(Charsets.UTF_8)
+                val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Cookie File", java.awt.FileDialog.LOAD)
+                dialog.isVisible = true
+                val fileName = dialog.file
+                val dir = dialog.directory
+                dialog.dispose()
+                if (fileName != null && dir != null) {
+                    File(dir, fileName).readText(Charsets.UTF_8)
                 } else {
                     null
                 }
