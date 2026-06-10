@@ -20,37 +20,31 @@ package net.ccbluex.liquidbounce.render.gui
 
 import net.ccbluex.liquidbounce.features.account.AccountManager
 import net.ccbluex.liquidbounce.features.account.AccountService
-import net.ccbluex.liquidbounce.render.drawQuad
 import net.ccbluex.liquidbounce.render.drawRoundedRect
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.render.gui.clickgui.ClickGuiTheme
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.client.gui.components.events.GuiEventListener
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen
+import net.minecraft.client.input.CharacterEvent
 import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.network.chat.Component
 import java.awt.Desktop
 import java.net.URI
 
-/**
- * Sunucu seçme ekranının sağ tarafına LiquidBounce'un kendi Java-side
- * AccountManager panelini yerleştirir. Vanilla server list davranışı
- * `super` çağrılarıyla korunur. Panel varsayılan olarak gizlidir; sağ
- * üstteki "Account Manager" butonu ile açılıp kapatılabilir.
- */
 class MultiplayerWithAccountsScreen(
     previous: Screen?,
 ) : JoinMultiplayerScreen(previous ?: TitleScreen()) {
 
     private val panelWidth = 280
     private val panelMargin = 8
-    private val panelHeaderH = 22
-    private val rowHeight = 26
+    private val panelHeaderH = 30
+    private val rowHeight = 32
 
     private var accountsVisible = false
 
@@ -72,7 +66,7 @@ class MultiplayerWithAccountsScreen(
         get() = panelHeaderH + 10
 
     private fun maxVisibleAccounts(): Int =
-        ((this.height - listAreaTopY - 130) / rowHeight).coerceAtLeast(2)
+        ((this.height - listAreaTopY - 150) / rowHeight).coerceAtLeast(2)
 
     override fun init() {
         super.init()
@@ -99,9 +93,9 @@ class MultiplayerWithAccountsScreen(
 
         val rightX = this.width - panelWidth - panelMargin
         val rightW = panelWidth - 8
-        val inputY = this.height - 110
+        val inputY = this.height - 120
 
-        val fieldW = rightW - 90
+        val fieldW = rightW - 84
         crackedField = EditBox(
             mc.font, rightX + 4, inputY, fieldW, 16,
             Component.literal("Username"),
@@ -117,7 +111,7 @@ class MultiplayerWithAccountsScreen(
                 crackedField?.value = ""
                 setStatus("Cracked account '$name' added", Color4b(140, 255, 140))
             }
-        }.bounds(rightX + rightW - 80, inputY, 76, 16).build().also { addRenderableWidget(it) }
+        }.bounds(rightX + rightW - 76, inputY, 72, 16).build().also { addRenderableWidget(it) }
 
         val alteningY = inputY + 22
         alteningField = EditBox(
@@ -125,7 +119,7 @@ class MultiplayerWithAccountsScreen(
             Component.literal("Token"),
         ).also { f ->
             f.setMaxLength(64)
-            f.setHint(Component.literal("Altening token"))
+            f.setHint(Component.literal("TheAltening token"))
             addRenderableWidget(f)
         }
         addAlteningButton = Button.builder(Component.literal("Add")) {
@@ -135,16 +129,14 @@ class MultiplayerWithAccountsScreen(
                 alteningField?.value = ""
                 setStatus("Altening account added", Color4b(140, 255, 140))
             }
-        }.bounds(rightX + rightW - 80, alteningY, 76, 16).build().also { addRenderableWidget(it) }
+        }.bounds(rightX + rightW - 76, alteningY, 72, 16).build().also { addRenderableWidget(it) }
 
-        val microsoftY = alteningY + 28
+        val microsoftY = alteningY + 26
         addMicrosoftButton = Button.builder(
             Component.literal("Login with Microsoft"),
         ) { startMicrosoftLogin() }.bounds(
             rightX + 4, microsoftY, rightW, 20,
         ).build().also { addRenderableWidget(it) }
-
-        setFocused(crackedField as GuiEventListener)
     }
 
     private fun removeAccountWidgets() {
@@ -177,14 +169,15 @@ class MultiplayerWithAccountsScreen(
     private fun startMicrosoftLogin() {
         AccountManager.newMicrosoftAccount { url ->
             try {
+                val clipboard = java.awt.datatransfer.StringSelection(url)
+                java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(clipboard, null)
+                setStatus("Login link copied to clipboard!", Color4b(140, 255, 140))
+
                 if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                     Desktop.getDesktop().browse(URI.create(url))
-                    setStatus("Microsoft login opened in browser...", Color4b(140, 200, 255))
-                } else {
-                    setStatus("Copy URL: $url", Color4b(255, 200, 100))
                 }
             } catch (e: Exception) {
-                setStatus("Failed: ${e.message}", Color4b(255, 100, 100))
+                setStatus("URL copied: $url", Color4b(255, 200, 100))
             }
         }
     }
@@ -210,31 +203,30 @@ class MultiplayerWithAccountsScreen(
         val rightY = panelMargin
         val rightW = panelWidth
         val rightH = this.height - panelMargin * 2
+        val theme = ClickGuiTheme
 
         with(context) {
-            drawQuad(rightX.toFloat(), rightY.toFloat(), (rightX + rightW).toFloat(), (rightY + rightH).toFloat(), Color4b(0, 0, 0, 90))
-
             drawRoundedRect(
                 rightX.toFloat(), rightY.toFloat(),
-                (rightX + rightW).toFloat(), (rightY + rightH).toFloat(), 4f,
-                fillColor = Color4b(20, 20, 24, 230),
+                (rightX + rightW).toFloat(), (rightY + rightH).toFloat(), theme.cardRadius,
+                fillColor = theme.bgPrimary,
             )
             drawRoundedRect(
                 rightX.toFloat(), rightY.toFloat(),
-                (rightX + rightW).toFloat(), (rightY + panelHeaderH).toFloat(), 4f,
-                fillColor = Color4b(40, 40, 48, 240),
+                (rightX + rightW).toFloat(), (rightY + panelHeaderH).toFloat(), theme.cardRadius,
+                fillColor = theme.bgSecondary,
             )
         }
 
-        drawText(context, "Accounts", (rightX + 8).toFloat(), (rightY + 6).toFloat(), Color4b.WHITE)
+        drawText(context, "Accounts", (rightX + 10).toFloat(), (rightY + 9).toFloat(), theme.textPrimary)
         val currentUser = mc.user?.name
         if (currentUser != null) {
             val currentLabel = "Active: $currentUser"
             val tw = mc.font.width(currentLabel)
             drawText(
                 context, currentLabel,
-                (rightX + rightW - 8 - tw).toFloat(), (rightY + 8).toFloat(),
-                Color4b(140, 220, 140),
+                (rightX + rightW - 10 - tw).toFloat(), (rightY + 9).toFloat(),
+                Color4b(140, 255, 140),
             )
         }
 
@@ -253,16 +245,17 @@ class MultiplayerWithAccountsScreen(
         with(context) {
             drawRoundedRect(
                 listLeft.toFloat(), listTop.toFloat(),
-                listRight.toFloat(), listBottom.toFloat(), 3f,
-                fillColor = Color4b(15, 15, 18, 200),
+                listRight.toFloat(), listBottom.toFloat(), 4f,
+                fillColor = theme.bgContent,
             )
         }
 
         if (accounts.isEmpty()) {
             drawText(
                 context, "No accounts",
-                (listLeft + 8).toFloat(), (listTop + 8).toFloat(),
-                Color4b(140, 140, 145),
+                (listLeft + (listRight - listLeft - mc.font.width("No accounts")) / 2).toFloat(),
+                (listTop + 8).toFloat(),
+                theme.textDimmed,
             )
         } else {
             for (i in accounts.indices) {
@@ -270,16 +263,16 @@ class MultiplayerWithAccountsScreen(
                 val rowY = listTop + i * rowHeight - scrollOffset.toInt()
                 if (rowY + rowHeight <= listTop || rowY >= listBottom) continue
                 val bg = if (currentUser != null && account.profile?.username == currentUser) {
-                    Color4b(70, 130, 80, 180)
-                } else if (i.toInt() == hoveredAccountIndex(mouseX, mouseY)) {
-                    Color4b(50, 50, 60, 200)
+                    theme.accentDim
+                } else if (i == hoveredAccountIndex(mouseX, mouseY)) {
+                    theme.bgCardHover
                 } else {
-                    Color4b(25, 25, 30, 180)
+                    theme.bgCard
                 }
                 with(context) {
                     drawRoundedRect(
                         (listLeft + 2).toFloat(), (rowY + 1).toFloat(),
-                        (listRight - 2).toFloat(), (rowY + rowHeight - 2).toFloat(), 2f,
+                        (listRight - 2).toFloat(), (rowY + rowHeight - 1).toFloat(), 3f,
                         fillColor = bg,
                     )
                 }
@@ -287,35 +280,36 @@ class MultiplayerWithAccountsScreen(
                 drawText(
                     context, username,
                     (listLeft + 8).toFloat(), (rowY + 5).toFloat(),
-                    Color4b.WHITE,
+                    theme.textPrimary,
                 )
                 val service = AccountService.getService(account).tag
                 drawText(
                     context, service,
-                    (listLeft + 8).toFloat(), (rowY + 14).toFloat(),
-                    Color4b(140, 140, 145),
+                    (listLeft + 8).toFloat(), (rowY + 17).toFloat(),
+                    theme.textDimmed,
                 )
+
                 val loginLabel = "Login"
-                val loginW = mc.font.width(loginLabel) + 12
-                val loginH = 16
+                val loginW = mc.font.width(loginLabel) + 16
+                val loginH = 18
                 val loginX = listRight - loginW - 6
                 val loginY = rowY + (rowHeight - loginH) / 2
                 val loginBg = if (isOverLogin(i, mouseX, mouseY)) {
-                    Color4b(80, 130, 230, 230)
+                    theme.accent
                 } else {
-                    Color4b(50, 70, 110, 200)
+                    theme.border
                 }
                 with(context) {
                     drawRoundedRect(
                         loginX.toFloat(), loginY.toFloat(),
-                        (loginX + loginW).toFloat(), (loginY + loginH).toFloat(), 2f,
+                        (loginX + loginW).toFloat(), (loginY + loginH).toFloat(), 3f,
                         fillColor = loginBg,
                     )
                 }
                 drawText(
                     context, loginLabel,
-                    (loginX + 6).toFloat(), (loginY + 4).toFloat(),
-                    Color4b.WHITE,
+                    (loginX + (loginW - mc.font.width(loginLabel)) / 2).toFloat(), (loginY + 5).toFloat(),
+                    theme.textPrimary,
                 )
             }
         }
@@ -326,8 +320,8 @@ class MultiplayerWithAccountsScreen(
             with(context) {
                 drawRoundedRect(
                     (listRight - 3).toFloat(), scrollBarY,
-                    listRight.toFloat(), scrollBarY + scrollBarH, 1f,
-                    fillColor = Color4b(120, 120, 130, 200),
+                    listRight.toFloat(), scrollBarY + scrollBarH, 1.5f,
+                    fillColor = theme.scrollbarThumb,
                 )
             }
         }
@@ -336,7 +330,7 @@ class MultiplayerWithAccountsScreen(
             val statusY = this.height - 24
             drawText(
                 context, statusMessage!!,
-                (rightX + 4).toFloat(), statusY.toFloat(),
+                (rightX + 10).toFloat(), statusY.toFloat(),
                 statusMessageColor,
             )
         }
@@ -357,10 +351,15 @@ class MultiplayerWithAccountsScreen(
         val listTop = panelMargin + listAreaTopY
         val listRight = rightX + panelWidth - 4
         val rowY = listTop + index * rowHeight - scrollOffset.toInt()
-        val loginW = mc.font.width("Login") + 12
+        val loginW = mc.font.width("Login") + 16
         val loginX = listRight - loginW - 6
-        val loginY = rowY + (rowHeight - 16) / 2
-        return mouseX in loginX..(loginX + loginW) && mouseY in loginY..(loginY + 16)
+        val loginY = rowY + (rowHeight - 18) / 2
+        return mouseX in loginX..(loginX + loginW) && mouseY in loginY..(loginY + 18)
+    }
+
+    private fun isOverAccountRow(index: Int, mouseX: Int, mouseY: Int): Boolean {
+        if (index != hoveredAccountIndex(mouseX, mouseY)) return false
+        return !isOverLogin(index, mouseX, mouseY)
     }
 
     override fun mouseClicked(event: MouseButtonEvent, doubleClick: Boolean): Boolean {
@@ -369,29 +368,24 @@ class MultiplayerWithAccountsScreen(
             val my = event.y.toInt()
             if (mx >= this.width - panelWidth - panelMargin) {
                 val idx = hoveredAccountIndex(mx, my)
-                if (idx in AccountManager.accounts.indices && isOverLogin(idx, mx, my)) {
-                    if (event.button() == 0) {
+                if (idx in AccountManager.accounts.indices) {
+                    if (event.button() == 0 && isOverLogin(idx, mx, my)) {
                         AccountManager.loginAccount(idx)
                         setStatus("Logging in...", Color4b(140, 200, 255))
-                    } else if (event.button() == 1) {
+                        return true
+                    } else if (event.button() == 1 && isOverAccountRow(idx, mx, my)) {
                         try {
                             val removed = AccountManager.removeAccount(idx)
                             setStatus("Removed ${removed.profile?.username ?: "account"}", Color4b(255, 180, 100))
                         } catch (e: Exception) {
                             setStatus("Failed: ${e.message}", Color4b(255, 100, 100))
                         }
+                        return true
                     }
-                    return true
                 }
             }
         }
         return super.mouseClicked(event, doubleClick)
-    }
-
-    override fun keyPressed(event: KeyEvent): Boolean {
-        if (super.keyPressed(event)) return true
-        if (this.getFocused() is EditBox) return false
-        return false
     }
 
     override fun mouseScrolled(
