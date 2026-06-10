@@ -20,9 +20,6 @@ package net.ccbluex.liquidbounce.render.gui
 
 import com.google.gson.JsonParser
 import net.ccbluex.liquidbounce.api.core.HttpClient
-import net.ccbluex.liquidbounce.api.core.HttpMethod
-import net.ccbluex.liquidbounce.api.core.asForm
-import net.ccbluex.liquidbounce.api.core.parse
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.features.account.AccountManager
 import net.ccbluex.liquidbounce.render.drawRoundedRect
@@ -33,38 +30,37 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.KeyEvent
-import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.network.chat.Component
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 import java.util.concurrent.CompletableFuture
+import javax.swing.JFileChooser
+import javax.swing.filechooser.FileNameExtensionFilter
 
 class CookieLoginScreen(private val parent: Screen?) : Screen(Component.literal("Cookie Login")) {
 
     private val theme = ClickGuiTheme
-    private val boxW = 500
+    private val boxW = 440
 
-    private var cookieText: String = ""
-    private var cursorPos: Int = 0
-    private var statusMsg: String? = null
-    private var statusColor: Color4b = Color4b.WHITE
     private var logging = false
     private var loginSuccess = false
     private var loginError: String? = null
+    private var selectedFile: String? = null
 
-    private var loginButton: Button? = null
+    private var chooseButton: Button? = null
     private var backButton: Button? = null
 
     private fun boxX() = (this.width - boxW) / 2
 
     override fun init() {
         val bx = boxX()
-        val btnY = this.height / 2 + 80
-        val btnW = 120
+        val btnY = this.height / 2 + 60
+        val btnW = 130
 
-        loginButton = Button.builder(Component.literal("Login with Cookie")) {
-            startCookieLogin()
+        chooseButton = Button.builder(Component.literal("Choose Cookie File")) {
+            openFileChooser()
         }.bounds(bx + boxW / 2 - btnW - 5, btnY, btnW, 20).build().also { addRenderableWidget(it) }
 
         backButton = Button.builder(Component.literal("Back")) {
@@ -73,171 +69,186 @@ class CookieLoginScreen(private val parent: Screen?) : Screen(Component.literal(
     }
 
     override fun removed() {
-        loginButton = null
+        chooseButton = null
         backButton = null
     }
 
-    private fun startCookieLogin() {
-        if (logging) return
-        if (cookieText.isBlank()) {
-            statusMsg = "Paste your cookies first!"
-            statusColor = Color4b(255, 180, 100)
-            return
+    private fun openFileChooser() {
+        if (logging || loginSuccess) return
+        CompletableFuture.supplyAsync {
+            try {
+                val frame = javax.swing.JFrame()
+                frame.isAlwaysOnTop = true
+                val chooser = JFileChooser()
+                chooser.dialogTitle = "Select Cookie File"
+                chooser.fileFilter = FileNameExtensionFilter("Cookie Files (*.txt, *.cookie, cookies)", "txt", "cookie", "csv")
+                val result = chooser.showOpenDialog(frame)
+                frame.dispose()
+                if (result == JFileChooser.APPROVE_OPTION) {
+                    chooser.selectedFile.readText(Charsets.UTF_8)
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                loginError = "Failed to read file: ${e.message}"
+                null
+            }
+        }.thenAccept { content ->
+            if (content != null) {
+                selectedFile = content.lines().firstOrNull()?.take(60) ?: "Selected"
+                startCookieLogin(content)
+            }
         }
+    }
 
-        logging = true
-        statusMsg = "Authenticating..."
-        statusColor = Color4b(140, 200, 255)
+    private fun startCookieLogin(content: String) {
+        if (logging) return
 
-        val cookies = parseNetscapeCookies(cookieText)
+        val cookies = parseNetscapeCookies(content)
         val msaa = cookies[".login.live.com"]?.get("__Host-MSAAUTHP")
             ?: cookies["login.live.com"]?.get("__Host-MSAAUTHP")
             ?: cookies[".login.live.com"]?.get("MSAAUTHP")
             ?: cookies["login.live.com"]?.get("MSAAUTHP")
 
         if (msaa == null) {
-            logging = false
-            statusMsg = "No Microsoft auth cookie found (__Host-MSAAUTHP)"
-            statusColor = Color4b(255, 100, 100)
+            loginError = "No __Host-MSAAUTHP cookie found"
             return
         }
+
+        logging = true
+        loginError = null
 
         CompletableFuture.supplyAsync {
             try {
                 authenticateWithCookie(msaa)
             } catch (e: Exception) {
-                logging = false
                 loginError = e.message ?: "Unknown error"
+                logging = false
                 null
             }
         }.thenAccept { result ->
             if (result != null) {
                 loginSuccess = true
-                statusMsg = "Login Succeeded!"
-                statusColor = Color4b(100, 255, 100)
-            } else if (loginError == null) {
-                loginError = "Authentication failed"
             }
             logging = false
         }
     }
 
-    private fun authenticateWithCookie(msaaToken: String) {
+    private fun authenticateWithCookie(msaaToken: String): Boolean {
         val jsonType = "application/json".toMediaType()
         val client = HttpClient.client.newBuilder().build()
 
-        try {
-            // Step 1: XBL Auth
-            val xblBody = """
-                {
-                    "Properties": {
-                        "AuthMethod": "RPS",
-                        "RpsTicket": "$msaaToken",
-                        "SiteName": "user.auth.xboxlive.com"
-                    },
-                    "RelyingParty": "http://auth.xboxlive.com",
-                    "TokenType": "JWT"
-                }
-            """.trimIndent()
-
-            val xblRequest = Request.Builder()
-                .url("https://user.auth.xboxlive.com/user/authenticate")
-                .post(xblBody.toRequestBody(jsonType))
-                .header("User-Agent", "Mozilla/5.0")
-                .build()
-
-            val xblResponse = client.newCall(xblRequest).execute()
-            val xblJson = JsonParser.parseReader(xblResponse.body.charStream()).asJsonObject
-            xblResponse.close()
-
-            val xblToken = xblJson.get("Token").asString
-            val userHash = xblJson.getAsJsonObject("DisplayClaims")
-                .getAsJsonArray("xui")
-                .get(0).asJsonObject
-                .get("uhs").asString
-
-            // Step 2: XSTS Auth
-            val xstsBody = """
-                {
-                    "Properties": {
-                        "SandboxId": "RETAIL",
-                        "UserTokens": ["$xblToken"]
-                    },
-                    "RelyingParty": "rp://api.minecraftservices.com/",
-                    "TokenType": "JWT"
-                }
-            """.trimIndent()
-
-            val xstsRequest = Request.Builder()
-                .url("https://xsts.auth.xboxlive.com/xsts/authorize")
-                .post(xstsBody.toRequestBody(jsonType))
-                .header("User-Agent", "Mozilla/5.0")
-                .build()
-
-            val xstsResponse = client.newCall(xstsRequest).execute()
-            val xstsJson = JsonParser.parseReader(xstsResponse.body.charStream()).asJsonObject
-            xstsResponse.close()
-
-            val xstsToken = xstsJson.get("Token").asString
-
-            // Step 3: MC Login with Xbox
-            val mcBody = """
-                {
-                    "identityToken": "XBL3.0 x=$userHash;$xstsToken"
-                }
-            """.trimIndent()
-
-            val mcRequest = Request.Builder()
-                .url("https://api.minecraftservices.com/authentication/login_with_xbox")
-                .post(mcBody.toRequestBody(jsonType))
-                .header("User-Agent", "Mozilla/5.0")
-                .build()
-
-            val mcResponse = client.newCall(mcRequest).execute()
-            val mcJson = JsonParser.parseReader(mcResponse.body.charStream()).asJsonObject
-            mcResponse.close()
-
-            val accessToken = mcJson.get("access_token").asString
-
-            // Step 4: Fetch profile
-            val profileRequest = Request.Builder()
-                .url("https://api.minecraftservices.com/minecraft/profile")
-                .get()
-                .header("Authorization", "Bearer $accessToken")
-                .header("User-Agent", "Mozilla/5.0")
-                .build()
-
-            val profileResponse = client.newCall(profileRequest).execute()
-            val profileJson = JsonParser.parseReader(profileResponse.body.charStream()).asJsonObject
-            profileResponse.close()
-
-            val username = profileJson.get("name").asString
-            val uuid = profileJson.get("id").asString
-
-            // Step 5: Add account and login
-            val account = net.ccbluex.liquidbounce.authlib.account.SessionAccount(accessToken).apply {
-                refresh()
+        // Step 1: XBL Auth
+        val xblBody = """
+            {
+                "Properties": {
+                    "AuthMethod": "RPS",
+                    "RpsTicket": "$msaaToken",
+                    "SiteName": "user.auth.xboxlive.com"
+                },
+                "RelyingParty": "http://auth.xboxlive.com",
+                "TokenType": "JWT"
             }
+        """.trimIndent()
 
-            val existingAccount = AccountManager.accounts.find {
-                it.profile?.username.equals(username, true)
+        val xblRequest = Request.Builder()
+            .url("https://user.auth.xboxlive.com/user/authenticate")
+            .post(xblBody.toRequestBody(jsonType))
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            .build()
+
+        val xblResponse = client.newCall(xblRequest).execute()
+        val xblJson = JsonParser.parseReader(xblResponse.body.charStream()).asJsonObject
+        xblResponse.close()
+
+        val xblToken = xblJson.get("Token").asString
+        val userHash = xblJson.getAsJsonObject("DisplayClaims")
+            .getAsJsonArray("xui")
+            .get(0).asJsonObject
+            .get("uhs").asString
+
+        // Step 2: XSTS Auth
+        val xstsBody = """
+            {
+                "Properties": {
+                    "SandboxId": "RETAIL",
+                    "UserTokens": ["$xblToken"]
+                },
+                "RelyingParty": "rp://api.minecraftservices.com/",
+                "TokenType": "JWT"
             }
+        """.trimIndent()
 
-            if (existingAccount != null) {
-                AccountManager.accounts[AccountManager.accounts.indexOf(existingAccount)] = account
-            } else {
-                AccountManager.accounts += account
+        val xstsRequest = Request.Builder()
+            .url("https://xsts.auth.xboxlive.com/xsts/authorize")
+            .post(xstsBody.toRequestBody(jsonType))
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            .build()
+
+        val xstsResponse = client.newCall(xstsRequest).execute()
+        val xstsJson = JsonParser.parseReader(xstsResponse.body.charStream()).asJsonObject
+        xstsResponse.close()
+
+        if (xstsJson.has("XSTS")) {
+            val errCode = xstsJson.getAsJsonObject("XSTS")?.getAsJsonObject("Error")?.get("code")?.asString
+            if (errCode != null) {
+                throw Exception("XSTS Error: $errCode")
             }
-
-            ConfigSystem.store(AccountManager)
-            AccountManager.loginDirectAccount(account)
-
-            loginSuccess = true
-        } catch (e: Exception) {
-            logging = false
-            loginError = e.message ?: "Authentication failed"
-            throw e
         }
+        val xstsToken = xstsJson.get("Token").asString
+
+        // Step 3: MC Login with Xbox
+        val mcBody = """
+            {
+                "identityToken": "XBL3.0 x=$userHash;$xstsToken"
+            }
+        """.trimIndent()
+
+        val mcRequest = Request.Builder()
+            .url("https://api.minecraftservices.com/authentication/login_with_xbox")
+            .post(mcBody.toRequestBody(jsonType))
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            .build()
+
+        val mcResponse = client.newCall(mcRequest).execute()
+        val mcJson = JsonParser.parseReader(mcResponse.body.charStream()).asJsonObject
+        mcResponse.close()
+
+        val accessToken = mcJson.get("access_token").asString
+
+        // Step 4: Fetch profile
+        val profileRequest = Request.Builder()
+            .url("https://api.minecraftservices.com/minecraft/profile")
+            .get()
+            .header("Authorization", "Bearer $accessToken")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            .build()
+
+        val profileResponse = client.newCall(profileRequest).execute()
+        val profileJson = JsonParser.parseReader(profileResponse.body.charStream()).asJsonObject
+        profileResponse.close()
+
+        val username = profileJson.get("name").asString
+
+        // Step 5: Add account and login
+        val account = net.ccbluex.liquidbounce.authlib.account.SessionAccount(accessToken).apply {
+            refresh()
+        }
+
+        val existingAccount = AccountManager.accounts.find {
+            it.profile?.username.equals(username, true)
+        }
+
+        if (existingAccount != null) {
+            AccountManager.accounts[AccountManager.accounts.indexOf(existingAccount)] = account
+        } else {
+            AccountManager.accounts += account
+        }
+
+        ConfigSystem.store(AccountManager)
+        AccountManager.loginDirectAccount(account)
+
+        return true
     }
 
     private fun parseNetscapeCookies(text: String): Map<String, MutableMap<String, String>> {
@@ -264,7 +275,7 @@ class CookieLoginScreen(private val parent: Screen?) : Screen(Component.literal(
         context.fill(0, 0, this.width, this.height, 0x60080810.toInt())
 
         val bx = boxX()
-        val boxH = 220
+        val boxH = 180
         val boxTop = this.height / 2 - boxH / 2
 
         with(context) {
@@ -291,14 +302,14 @@ class CookieLoginScreen(private val parent: Screen?) : Screen(Component.literal(
             val mw = mc.font.width(msg)
             drawText(
                 context, msg,
-                (centerX - mw / 2).toFloat(), (boxTop + 50).toFloat(),
+                (centerX - mw / 2).toFloat(), (boxTop + 48).toFloat(),
                 Color4b(100, 255, 100),
             )
-            val sub = "Account has been added and logged in."
+            val sub = "Account added and logged in successfully."
             val sw = mc.font.width(sub)
             drawText(
                 context, sub,
-                (centerX - sw / 2).toFloat(), (boxTop + 68).toFloat(),
+                (centerX - sw / 2).toFloat(), (boxTop + 66).toFloat(),
                 theme.textDimmed,
             )
         } else if (loginError != null) {
@@ -306,65 +317,48 @@ class CookieLoginScreen(private val parent: Screen?) : Screen(Component.literal(
             val mw = mc.font.width(msg)
             drawText(
                 context, msg,
-                (centerX - mw / 2).toFloat(), (boxTop + 45).toFloat(),
+                (centerX - mw / 2).toFloat(), (boxTop + 48).toFloat(),
                 Color4b(255, 80, 80),
             )
             val errMsg = loginError!!.take(60)
             val ew = mc.font.width(errMsg)
             drawText(
                 context, errMsg,
-                (centerX - ew / 2).toFloat(), (boxTop + 62).toFloat(),
+                (centerX - ew / 2).toFloat(), (boxTop + 66).toFloat(),
                 theme.textDimmed,
             )
-        } else {
-            val hint = "Paste Netscape cookies below:"
-            val hw = mc.font.width(hint)
+        } else if (logging) {
+            val dots = ".".repeat(((System.currentTimeMillis() / 400) % 4).toInt())
+            val waitMsg = "Authenticating$dots"
+            val ww = mc.font.width(waitMsg)
             drawText(
-                context, hint,
-                (centerX - hw / 2).toFloat(), (boxTop + 40).toFloat(),
-                theme.textPrimary,
+                context, waitMsg,
+                (centerX - ww / 2).toFloat(), (boxTop + 48).toFloat(),
+                theme.accent,
             )
-
-            val inputX = bx + 10
-            val inputY = boxTop + 55
-            val inputW = boxW - 20
-            val inputH = 80
-            with(context) {
-                drawRoundedRect(
-                    inputX.toFloat(), inputY.toFloat(),
-                    (inputX + inputW).toFloat(), (inputY + inputH).toFloat(), 4f,
-                    fillColor = theme.bgInput,
-                )
-            }
-
-            if (cookieText.isNotEmpty()) {
-                val lines = cookieText.lines()
-                var y = inputY + 4
-                for (line in lines) {
-                    if (y > inputY + inputH - 10) break
-                    val display = if (line.length > 70) line.take(70) + "..." else line
-                    drawText(context, display, (inputX + 4).toFloat(), y.toFloat(), theme.textDimmed)
-                    y += 10
-                }
-            } else {
-                val placeholder = "Ctrl+V to paste cookies..."
-                val pw = mc.font.width(placeholder)
+            if (selectedFile != null) {
+                val fileMsg = "File: $selectedFile"
+                val fw = mc.font.width(fileMsg)
                 drawText(
-                    context, placeholder,
-                    (centerX - pw / 2).toFloat(), (inputY + 34).toFloat(),
+                    context, fileMsg,
+                    (centerX - fw / 2).toFloat(), (boxTop + 66).toFloat(),
                     theme.textDimmed,
                 )
             }
-        }
-
-        if (logging) {
-            val waiting = "Authenticating"
-            val dots = ".".repeat(((System.currentTimeMillis() / 400) % 4).toInt())
-            val ww = mc.font.width(waiting + dots)
+        } else {
+            val hint = "Select a Netscape cookie file to login"
+            val hw = mc.font.width(hint)
             drawText(
-                context, waiting + dots,
-                (centerX - ww / 2).toFloat(), (boxTop + 100).toFloat(),
-                theme.accent,
+                context, hint,
+                (centerX - hw / 2).toFloat(), (boxTop + 50).toFloat(),
+                theme.textDimmed,
+            )
+            val hint2 = "(Export cookies from your browser as Netscape format)"
+            val hw2 = mc.font.width(hint2)
+            drawText(
+                context, hint2,
+                (centerX - hw2 / 2).toFloat(), (boxTop + 66).toFloat(),
+                theme.textDimmed,
             )
         }
     }
@@ -375,17 +369,6 @@ class CookieLoginScreen(private val parent: Screen?) : Screen(Component.literal(
             return true
         }
         return super.keyPressed(event)
-    }
-
-    override fun charTyped(event: net.minecraft.client.input.CharacterEvent): Boolean {
-        if (loginSuccess || logging) return false
-        val c = event.codepoint().toChar()
-        if (c.code in 32..126) {
-            cookieText = cookieText.substring(0, cursorPos) + c + cookieText.substring(cursorPos)
-            cursorPos++
-            return true
-        }
-        return false
     }
 
     private fun drawText(
