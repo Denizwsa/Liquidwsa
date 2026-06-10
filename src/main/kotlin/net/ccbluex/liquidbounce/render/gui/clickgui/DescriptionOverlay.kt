@@ -18,15 +18,11 @@
  */
 package net.ccbluex.liquidbounce.render.gui.clickgui
 
+import net.ccbluex.liquidbounce.render.drawRoundedRect
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gui.GuiGraphicsExtractor
 
-/**
- * Floating tooltip that shows a module's description and aliases when the
- * user hovers a module row. Anchors itself to whichever side of the row
- * has the most free space, mirroring the Svelte WebUI behavior.
- */
 class DescriptionOverlay {
 
     private var pending: Entry? = null
@@ -50,7 +46,7 @@ class DescriptionOverlay {
         rowRight: Float,
         screenWidth: Float,
     ) {
-        val anchorRight = (screenWidth - rowRight) > ClickGuiTheme.descriptionMaxWidth
+        val anchorRight = (screenWidth - rowRight) > 220
         pending = Entry(
             description = description,
             aliases = aliases,
@@ -73,7 +69,7 @@ class DescriptionOverlay {
         val now = System.currentTimeMillis()
         val elapsed = now - currentMs
         val target = if (pending == null) 0f else 1f
-        val speed = 1f / ClickGuiTheme.descriptionFadeMs.coerceAtLeast(1)
+        val speed = 1f / 120f.coerceAtLeast(1f)
         alpha = (alpha + (target - alpha) * speed * (now - lastRender).coerceAtLeast(1)).coerceIn(0f, 1f)
         lastRender = now
         if (alpha <= 0.01f) return
@@ -85,22 +81,32 @@ class DescriptionOverlay {
             }
         }
         val maxW = lines.maxOf { mc.font.width(it) }
-        val boxW = (maxW + 12).coerceAtMost(ClickGuiTheme.descriptionMaxWidth)
+        val boxW = (maxW + 12).coerceAtMost(220)
         val boxH = lines.size * (mc.font.lineHeight + 2) + 8
         val boxX = if (entry.anchorRight) entry.anchorX.toInt() else (entry.anchorX - boxW).toInt()
         val boxY = (entry.anchorY - boxH / 2f).toInt()
 
         val a = (alpha * 245).toInt()
-        val bg = Color4b(ClickGuiTheme.descriptionBg.r, ClickGuiTheme.descriptionBg.g, ClickGuiTheme.descriptionBg.b, a)
-        context.fill(boxX, boxY, boxX + boxW, boxY + boxH, bg.argb)
-        var y = boxY + 4
-        for ((i, line) in lines.withIndex()) {
-            val color = if (i == 0)
-                Color4b(ClickGuiTheme.descriptionText.r, ClickGuiTheme.descriptionText.g, ClickGuiTheme.descriptionText.b, a)
-            else
-                Color4b(ClickGuiTheme.descriptionAlias.r, ClickGuiTheme.descriptionAlias.g, ClickGuiTheme.descriptionAlias.b, a)
-            context.text(mc.font, line, boxX + 6, y, color.argb, true)
-            y += mc.font.lineHeight + 2
+
+        with(context) {
+            drawRoundedRect(
+                boxX.toFloat(), boxY.toFloat(),
+                (boxX + boxW).toFloat(), (boxY + boxH).toFloat(),
+                6f,
+                fillColor = Color4b(ClickGuiTheme.descriptionBg.r, ClickGuiTheme.descriptionBg.g, ClickGuiTheme.descriptionBg.b, a),
+                outlineColor = Color4b(ClickGuiTheme.border.r, ClickGuiTheme.border.g, ClickGuiTheme.border.b, (a * 0.7f).toInt()),
+                outlineWidth = 1f,
+            )
+
+            var y = boxY + 4
+            for ((i, line) in lines.withIndex()) {
+                val color = if (i == 0)
+                    Color4b(ClickGuiTheme.descriptionText.r, ClickGuiTheme.descriptionText.g, ClickGuiTheme.descriptionText.b, a)
+                else
+                    Color4b(ClickGuiTheme.descriptionAlias.r, ClickGuiTheme.descriptionAlias.g, ClickGuiTheme.descriptionAlias.b, a)
+                text(mc.font, line, boxX + 6, y, color.argb, true)
+                y += mc.font.lineHeight + 2
+            }
         }
     }
 

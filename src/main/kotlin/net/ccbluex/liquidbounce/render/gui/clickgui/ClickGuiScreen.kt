@@ -19,8 +19,8 @@
 package net.ccbluex.liquidbounce.render.gui.clickgui
 
 import com.mojang.blaze3d.platform.InputConstants
+import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleCategory
-import net.ccbluex.liquidbounce.features.module.ModuleManager
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
@@ -30,123 +30,119 @@ import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.network.chat.Component
 import org.lwjgl.glfw.GLFW
 
-/**
- * Java-side port of the Svelte WebUI ClickGUI that ships with the original
- * LiquidBounce-nextgen theme. Composes the top-center [SearchBar], a
- * draggable [Panel] per [ModuleCategory], and the floating
- * [DescriptionOverlay] into a single screen, owns the input dispatch, and
- * persists panel layout to [ClickGuiConfig].
- */
 class ClickGuiScreen : Screen(Component.literal("ClickGui")) {
-    // Override extractBackground to prevent the default 1.21+ blur + dim overlay
-    // (which causes VulkanMod shader conflicts and FPS drops). Solid gradient fill
-    // is done in extractRenderState instead.
-    override fun extractBackground(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
-        // no-op
-    }
 
-    private val panels: MutableList<Panel> = ModuleManager
-        .map { it.category }
-        .toSortedSet(compareBy { it.tag })
-        .map(::Panel)
-        .toMutableList()
-    private val searchBar = SearchBar { module -> highlightAndExpand(module) }
+    override fun extractBackground(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {}
+
+    private val firstCategory: ModuleCategory = ModuleCategories.entries.first()
+    private val sidebar = Sidebar(firstCategory) { category ->
+        contentArea.selectedCategory(category)
+    }
+    private val contentArea = ContentArea(firstCategory)
     private val description = DescriptionOverlay()
-    private var highlighted: ModuleElement? = null
-
-    init {
-        // Default panel grid: 3 columns x N rows
-        val cols = 3
-        val startX = 24
-        val startY = 56
-        val gapX = 124
-        val gapY = 18
-        for ((idx, panel) in panels.withIndex()) {
-            if (panel.x == 0 && panel.y == 0) {
-                val col = idx % cols
-                val row = idx / cols
-                panel.x = startX + col * gapX
-                panel.y = startY + row * gapY
-            }
-        }
-    }
-
-    override fun init() {
-        for (p in panels) {
-            if (p.x < 0 || p.y < 0) {
-                p.x = 24
-                p.y = 56
-            }
-        }
-    }
-
-    override fun onClose() {
-        ClickGuiConfig.flush()
-        for (p in panels) p.saveConfig()
-    }
 
     override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
-        // Solid semi-transparent background (Vulkan-safe single fill, no shader)
-        context.fill(0, 0, mc.window.guiScaledWidth, mc.window.guiScaledHeight, 0x40080808.toInt())
+        val sw = mc.window.guiScaledWidth
+        val sh = mc.window.guiScaledHeight
 
-        val sortedPanels = panels.sortedBy { it.zIndex }
-        for (p in sortedPanels) {
-            p.render(context, mouseX, mouseY, partialTick, highlighted)
-        }
-        searchBar.render(context, mc.window.guiScaledWidth, mouseX, mouseY, partialTick)
-        description.render(context, partialTick)
+        context.fill(0, 0, sw, sh, 0x60080810.toInt())
 
-        val module = panels.firstNotNullOfOrNull { it.moduleAt(mouseX, mouseY) }
+        val margin = 12
+        val topBarHeight = 0
+        val sidebarX = margin
+        val sidebarY = margin + topBarHeight
+        val sidebarH = sh - margin * 2 - topBarHeight
+
+        sidebar.render(context, sidebarX, sidebarY, sidebarH, mouseX, mouseY)
+
+        val contentX = sidebarX + sidebar.width + 8
+        val contentY = sidebarY
+        val contentW = sw - contentX - margin
+        val contentH = sidebarH
+
+        contentArea.render(context, contentX, contentY, contentW, contentH, mouseX, mouseY, partialTick)
+
+        val module = contentArea.moduleAt(mouseX, mouseY, contentX, contentY)
         if (module != null) {
-            val panel = panels.firstOrNull { it.moduleAt(mouseX, mouseY) != null }
-            val rowRight = (panel?.let { (it.x + it.width).toFloat() }) ?: mouseX.toFloat()
+            val cardX = contentX + ClickGuiTheme.contentPadding
+            val cardW = contentW - ClickGuiTheme.contentPadding * 2 - ClickGuiTheme.scrollbarWidth - 4
             description.show(
                 module.description(),
                 module.aliases(),
-                mouseX.toFloat(),
-                (ClickGuiTheme.moduleRowHeight).toFloat(),
-                rowRight,
-                mc.window.guiScaledWidth.toFloat()
+                (cardX + cardW / 2).toFloat(),
+                mouseY.toFloat(),
+                (cardX + cardW).toFloat(),
+                sw.toFloat(),
             )
         } else {
             description.hide()
         }
+        description.render(context, partialTick)
     }
 
     override fun mouseClicked(event: MouseButtonEvent, doubleClick: Boolean): Boolean {
         val mx = event.x.toInt()
         val my = event.y.toInt()
-        if (searchBar.mouseClicked(mx, my, mc.window.guiScaledWidth, event.button())) return true
-        for (p in panels.sortedByDescending { it.zIndex }) {
-            if (p.mouseClicked(mx, my, event.button())) return true
-        }
+        val sw = mc.window.guiScaledWidth
+        val sh = mc.window.guiScaledHeight
+        val margin = 12
+        val sidebarX = margin
+        val sidebarY = margin
+        val sidebarH = sh - margin * 2
+
+        if (sidebar.mouseClicked(mx, my, sidebarX, sidebarY, event.button())) return true
+
+        val contentX = sidebarX + ClickGuiTheme.sidebarWidth + 8
+        val contentY = sidebarY
+        val contentW = sw - contentX - margin
+        val contentH = sidebarH
+
+        if (contentArea.mouseClicked(mx, my, contentX, contentY, contentW, contentH, event.button())) return true
         return super.mouseClicked(event, doubleClick)
     }
 
     override fun mouseReleased(event: MouseButtonEvent): Boolean {
         val mx = event.x.toInt()
         val my = event.y.toInt()
-        for (p in panels.sortedByDescending { it.zIndex }) {
-            if (p.mouseReleased(mx, my, event.button())) return true
-        }
+        val sw = mc.window.guiScaledWidth
+        val sh = mc.window.guiScaledHeight
+        val margin = 12
+        val contentX = margin + ClickGuiTheme.sidebarWidth + 8
+        val contentY = margin
+        val contentW = sw - contentX - margin
+        val contentH = sh - margin * 2
+
+        if (contentArea.mouseReleased(mx, my, contentX, contentY, contentW, contentH, event.button())) return true
         return super.mouseReleased(event)
     }
 
     override fun mouseDragged(event: MouseButtonEvent, dragX: Double, dragY: Double): Boolean {
         val mx = event.x.toInt()
         val my = event.y.toInt()
-        for (p in panels.sortedByDescending { it.zIndex }) {
-            if (p.mouseDragged(mx, my, event.button(), dragX, dragY)) return true
-        }
+        val sw = mc.window.guiScaledWidth
+        val sh = mc.window.guiScaledHeight
+        val margin = 12
+        val contentX = margin + ClickGuiTheme.sidebarWidth + 8
+        val contentY = margin
+        val contentW = sw - contentX - margin
+        val contentH = sh - margin * 2
+
+        if (contentArea.mouseDragged(mx, my, contentX, contentY, contentW, contentH, event.button(), dragX, dragY)) return true
         return super.mouseDragged(event, dragX, dragY)
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
         val mx = mouseX.toInt()
         val my = mouseY.toInt()
-        for (p in panels.sortedByDescending { it.zIndex }) {
-            if (p.mouseScrolled(mx, my, scrollX, scrollY)) return true
-        }
+        val sw = mc.window.guiScaledWidth
+        val sh = mc.window.guiScaledHeight
+        val margin = 12
+        val contentX = margin + ClickGuiTheme.sidebarWidth + 8
+        val contentY = margin
+        val contentW = sw - contentX - margin
+        val contentH = sh - margin * 2
+
+        if (contentArea.mouseScrolled(mx, my, scrollY, contentX, contentY, contentW, contentH)) return true
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
     }
 
@@ -154,51 +150,30 @@ class ClickGuiScreen : Screen(Component.literal("ClickGui")) {
         val keyCode = event.key()
         val scanCode = event.scancode()
         val modifiers = event.modifiers()
-        if (searchBar.keyPressed(keyCode, scanCode, modifiers)) return true
+
+        if (contentArea.keyPressed(keyCode, scanCode, modifiers)) return true
+
         when (keyCode) {
             GLFW.GLFW_KEY_ESCAPE -> {
                 mc.setScreen(null)
                 return true
             }
-            InputConstants.KEY_TAB -> {
-                return true
-            }
-            GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT -> {
-                for (p in panels) p.onKeyShift(true)
-            }
-        }
-        for (p in panels.sortedByDescending { it.zIndex }) {
-            if (p.keyPressed(keyCode, scanCode, modifiers)) return true
+            InputConstants.KEY_TAB -> return true
         }
         return super.keyPressed(event)
     }
 
     override fun keyReleased(event: KeyEvent): Boolean {
-        val keyCode = event.key()
-        if (keyCode == GLFW.GLFW_KEY_LEFT_SHIFT || keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
-            for (p in panels) p.onKeyShift(false)
-        }
         return super.keyReleased(event)
     }
 
     override fun charTyped(event: CharacterEvent): Boolean {
         val codePoint = event.codepoint().toChar()
         val modifiers = 0
-        if (searchBar.charTyped(codePoint, modifiers)) return true
-        for (p in panels.sortedByDescending { it.zIndex }) {
-            if (p.charTyped(codePoint, modifiers)) return true
-        }
+
+        if (contentArea.charTyped(codePoint, modifiers)) return true
         return super.charTyped(event)
     }
 
     override fun isPauseScreen(): Boolean = false
-
-    private fun highlightAndExpand(module: net.ccbluex.liquidbounce.features.module.ClientModule) {
-        val panel = panels.firstOrNull { p -> p.category == module.category } ?: return
-        panel.expanded = true
-        val element = panel.moduleElements().firstOrNull { it.module == module } ?: return
-        element.expanded = true
-        highlighted = element
-        panel.bringToFront()
-    }
 }

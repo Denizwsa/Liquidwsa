@@ -27,33 +27,24 @@ import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.config.types.list.ChoiceListValue
 import net.ccbluex.liquidbounce.config.types.list.MultiChoiceListValue
 import net.ccbluex.liquidbounce.config.types.list.Tagged
+import net.ccbluex.liquidbounce.render.drawRoundedRect
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.gui.clickgui.ClickGuiTheme
 import net.ccbluex.liquidbounce.render.gui.clickgui.spacedName
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.input.InputBind
 import net.minecraft.client.gui.GuiGraphicsExtractor
-import net.minecraft.util.Mth
 import org.lwjgl.glfw.GLFW
 
-private const val ROW_HEIGHT: Int = 20
-private const val CHECKBOX_SIZE: Int = 12
-private const val SLIDER_HEIGHT: Int = 6
-private const val SLIDER_KNOB: Int = 8
-private const val ARROW_W: Int = 10
+private const val ROW_HEIGHT = 22
+private const val SLIDER_HEIGHT = 4
+private const val SLIDER_KNOB = 8
 
-/**
- * Dispatches a [Value] to the most appropriate [GenericSetting] widget.
- * Exhaustive over [ValueType] – every known type produces a widget.
- * Unknown / unhandled subtypes gracefully degrade to a read-only
- * [FallbackSetting] so the Y‑offset never breaks.
- */
 fun createSetting(value: Value<*>): GenericSetting? {
     if (value.doNotInclude.asBoolean || value.notAnOption) return null
 
     @Suppress("UNCHECKED_CAST")
     val widget: GenericSetting = when {
-        // Dedicated sub‑class checks (must come before generic valueType dispatch)
         value is ModeValueGroup<*> -> ModeGroupSetting(value)
         value is MultiChoiceListValue<*> -> MultiEnumSetting(value as MultiChoiceListValue<Tagged>)
         value is ChoiceListValue<*> -> ChoiceSetting(value as ChoiceListValue<Tagged>)
@@ -65,7 +56,6 @@ fun createSetting(value: Value<*>): GenericSetting? {
             ValueType.FLOAT_RANGE -> fallback(value)
             else -> fallback(value)
         }
-        // ValueType-based dispatch (for types not matched by dedicated sub‑class checks above)
         else -> when (value.valueType) {
             ValueType.BOOLEAN -> BooleanSetting(value as Value<Boolean>)
             ValueType.COLOR -> ColorSetting(value as Value<Color4b>)
@@ -76,14 +66,6 @@ fun createSetting(value: Value<*>): GenericSetting? {
     return widget
 }
 
-// ── Fallback ──────────────────────────────────────────────────────────────
-
-/**
- * Creates a read‑only placeholder row for value types that lack a dedicated
- * widget implementation. The row preserves vertical spacing and displays the
- * value's name + current value in a dimmed style so the user can see that
- * the setting exists even when the GUI can't yet edit it.
- */
 private fun fallback(value: Value<*>): GenericSetting = FallbackSetting(value)
 
 private class FallbackSetting(override val value: Value<*>) : GenericSetting() {
@@ -96,21 +78,26 @@ private class FallbackSetting(override val value: Value<*>) : GenericSetting() {
         partialTick: Float,
         hovered: Boolean,
     ): Int {
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
         val text = "${displayName}: ${value.get()}"
-        context.drawTextClipped(text, x + 4, y + (ROW_HEIGHT - 8) / 2,
-            ClickGuiTheme.valueTextDimmed, width - 8)
+        drawTextClipped(context, text, x + 6, y + (ROW_HEIGHT - 8) / 2,
+            ClickGuiTheme.textDimmed, width - 12)
         return ROW_HEIGHT
     }
 }
 
-private fun GuiGraphicsExtractor.drawTextClipped(text: String, x: Int, y: Int, color: Color4b, maxWidth: Int = Int.MAX_VALUE) {
+private fun drawTextClipped(context: GuiGraphicsExtractor, text: String, x: Int, y: Int, color: Color4b, maxWidth: Int = Int.MAX_VALUE) {
     val trimmed = if (mc.font.width(text) > maxWidth && maxWidth > 4) {
         var s = text
         while (s.isNotEmpty() && mc.font.width("$s…") > maxWidth) s = s.dropLast(1)
         "$s…"
     } else text
-    text(mc.font, trimmed, x, y, color.argb, true)
+    context.text(mc.font, trimmed, x, y, color.argb, true)
 }
 
 class BooleanSetting(override val value: Value<Boolean>) : GenericSetting() {
@@ -118,31 +105,42 @@ class BooleanSetting(override val value: Value<Boolean>) : GenericSetting() {
 
     override fun render(
         context: GuiGraphicsExtractor,
-        x: Int,
-        y: Int,
-        width: Int,
-        mouseX: Int,
-        mouseY: Int,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
         partialTick: Float,
         hovered: Boolean,
     ): Int {
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
-        context.drawTextClipped(
-            displayName, x + 4, y + (ROW_HEIGHT - 8) / 2,
-            if (hovered) ClickGuiTheme.textNormal else ClickGuiTheme.textDimmed,
-            width - 4 - CHECKBOX_SIZE - 8
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
+        drawTextClipped(
+            context, displayName, x + 6, y + (ROW_HEIGHT - 8) / 2,
+            if (hovered) ClickGuiTheme.textPrimary else ClickGuiTheme.textSecondary,
+            width - 50
         )
         val isOn = value.get()
-        val checkX = x + width - CHECKBOX_SIZE - 6
-        val checkY = y + (ROW_HEIGHT - CHECKBOX_SIZE) / 2
-        context.fill(checkX, checkY, checkX + CHECKBOX_SIZE, checkY + CHECKBOX_SIZE, ClickGuiTheme.checkboxOff.argb)
-        if (isOn) {
-            context.fill(
-                checkX + 2, checkY + 2,
-                checkX + CHECKBOX_SIZE - 2, checkY + CHECKBOX_SIZE - 2,
-                ClickGuiTheme.checkboxOn.argb
-            )
-        }
+        val toggleX = x + width - 44
+        val toggleY = y + (ROW_HEIGHT - ClickGuiTheme.toggleHeight) / 2
+        val tw = ClickGuiTheme.toggleWidth
+        val th = ClickGuiTheme.toggleHeight
+        val radius = th / 2f
+        context.drawRoundedRect(
+            toggleX.toFloat(), toggleY.toFloat(),
+            (toggleX + tw).toFloat(), (toggleY + th).toFloat(),
+            radius,
+            fillColor = if (isOn) ClickGuiTheme.toggleEnabled else ClickGuiTheme.toggleBg,
+        )
+        val knobRadius = (th - 4) / 2f
+        val knobX = if (isOn) toggleX + tw - th + 2 else toggleX + 2
+        context.drawRoundedRect(
+            knobX.toFloat(), (toggleY + 2).toFloat(),
+            (knobX + knobRadius * 2).toFloat(), (toggleY + 2 + knobRadius * 2).toFloat(),
+            knobRadius,
+            fillColor = ClickGuiTheme.toggleKnob,
+        )
         return ROW_HEIGHT
     }
 
@@ -172,37 +170,57 @@ class IntSetting(override val value: RangedValue<*>) : GenericSetting() {
 
     override fun render(
         context: GuiGraphicsExtractor,
-        x: Int,
-        y: Int,
-        width: Int,
-        mouseX: Int,
-        mouseY: Int,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
         partialTick: Float,
         hovered: Boolean,
     ): Int {
         rowLeft = x
         rowWidth = width
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
-        context.drawTextClipped(
-            displayName, x + 4, y + 2,
-            if (hovered) ClickGuiTheme.textNormal else ClickGuiTheme.textDimmed,
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
+        drawTextClipped(
+            context, displayName, x + 6, y + 2,
+            if (hovered) ClickGuiTheme.textPrimary else ClickGuiTheme.textSecondary,
             width - 60
         )
         val valueText = value.get().toString()
         val tw = mc.font.width(valueText)
-        context.text(mc.font, valueText, x + width - tw - 4, y + 2, ClickGuiTheme.textNormal.argb, true)
-        val trackX = x + 4
-        val trackW = width - 8
-        val trackY = y + ROW_HEIGHT - SLIDER_HEIGHT - 3
-        context.fill(trackX, trackY, trackX + trackW, trackY + SLIDER_HEIGHT, ClickGuiTheme.sliderTrack.argb)
+        context.text(mc.font, valueText, x + width - tw - 6, y + 2, ClickGuiTheme.textPrimary.argb, true)
+
+        val trackX = x + 6
+        val trackW = width - 12
+        val trackY = y + ROW_HEIGHT - SLIDER_HEIGHT - 5
+        context.drawRoundedRect(
+            trackX.toFloat(), trackY.toFloat(),
+            (trackX + trackW).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+            (SLIDER_HEIGHT / 2f),
+            fillColor = ClickGuiTheme.sliderBg,
+        )
         val cur = typed.get()
         val span = (rangeMax() - rangeMin()).coerceAtLeast(1)
         val ratio = ((cur - rangeMin()).toFloat() / span).coerceIn(0f, 1f)
-        val filled = (trackW * ratio).toInt()
-        context.fill(trackX, trackY, trackX + filled, trackY + SLIDER_HEIGHT, ClickGuiTheme.sliderFill.argb)
+        val filled = (trackW * ratio).toInt().coerceAtLeast(0)
+        if (filled > 0) {
+            context.drawRoundedRect(
+                trackX.toFloat(), trackY.toFloat(),
+                (trackX + filled).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+                (SLIDER_HEIGHT / 2f),
+                fillColor = ClickGuiTheme.sliderFill,
+            )
+        }
         val knobX = trackX + filled - SLIDER_KNOB / 2
-        val knobY = trackY - 1
-        context.fill(knobX, knobY, knobX + SLIDER_KNOB, knobY + SLIDER_HEIGHT + 2, ClickGuiTheme.sliderKnob.argb)
+        val knobY = trackY - (SLIDER_KNOB - SLIDER_HEIGHT) / 2
+        context.drawRoundedRect(
+            knobX.toFloat(), knobY.toFloat(),
+            (knobX + SLIDER_KNOB).toFloat(), (knobY + SLIDER_KNOB).toFloat(),
+            (SLIDER_KNOB / 2f),
+            fillColor = ClickGuiTheme.sliderKnob,
+        )
         return ROW_HEIGHT
     }
 
@@ -224,7 +242,7 @@ class IntSetting(override val value: RangedValue<*>) : GenericSetting() {
 
     override fun mouseDragged(mouseX: Int, mouseY: Int, button: Int, dragX: Double, dragY: Double): Boolean {
         if (dragging) {
-            val trackW = rowWidth - 8
+            val trackW = rowWidth - 12
             val delta = (mouseX - dragStartX).toFloat()
             val span = (rangeMax() - rangeMin()).coerceAtLeast(1)
             val newVal = dragStartVal + (delta / trackW.coerceAtLeast(1) * span).toInt()
@@ -235,14 +253,6 @@ class IntSetting(override val value: RangedValue<*>) : GenericSetting() {
     }
 }
 
-/**
- * Displays an [IntRange] (e.g. `1..20`). Click left half to increase the
- * lower bound, click right half to increase the upper bound. Right‑click
- * decreases instead. Shift‑click jumps by 10.
- *
- * Unlike [IntSetting] this widget has no slider — the compact two‑value
- * layout fits the same row height as the other settings.
- */
 class IntRangeSetting(override val value: RangedValue<*>) : GenericSetting() {
     override val height: Int = ROW_HEIGHT
     private var rowX: Int = 0
@@ -264,17 +274,22 @@ class IntRangeSetting(override val value: RangedValue<*>) : GenericSetting() {
     ): Int {
         rowX = x
         rowW = width
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
-        context.drawTextClipped(
-            displayName, x + 4, y + (ROW_HEIGHT - 8) / 2,
-            if (hovered) ClickGuiTheme.textNormal else ClickGuiTheme.textDimmed,
-            width - 60
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
+        drawTextClipped(
+            context, displayName, x + 6, y + (ROW_HEIGHT - 8) / 2,
+            if (hovered) ClickGuiTheme.textPrimary else ClickGuiTheme.textSecondary,
+            width - 70
         )
         val range = typed.get()
         val text = "${range.first} - ${range.last}"
         val tw = mc.font.width(text)
-        context.text(mc.font, text, x + width - tw - 4, y + (ROW_HEIGHT - 8) / 2,
-            ClickGuiTheme.textNormal.argb, true)
+        context.text(mc.font, text, x + width - tw - 6, y + (ROW_HEIGHT - 8) / 2,
+            ClickGuiTheme.textPrimary.argb, true)
         return ROW_HEIGHT
     }
 
@@ -316,36 +331,56 @@ class FloatSetting(override val value: RangedValue<*>) : GenericSetting() {
 
     override fun render(
         context: GuiGraphicsExtractor,
-        x: Int,
-        y: Int,
-        width: Int,
-        mouseX: Int,
-        mouseY: Int,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
         partialTick: Float,
         hovered: Boolean,
     ): Int {
         rowWidth = width
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
-        context.drawTextClipped(
-            displayName, x + 4, y + 2,
-            if (hovered) ClickGuiTheme.textNormal else ClickGuiTheme.textDimmed,
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
+        drawTextClipped(
+            context, displayName, x + 6, y + 2,
+            if (hovered) ClickGuiTheme.textPrimary else ClickGuiTheme.textSecondary,
             width - 60
         )
         val raw = typed.get()
         val valueText = String.format("%.2f", raw)
         val tw = mc.font.width(valueText)
-        context.text(mc.font, valueText, x + width - tw - 4, y + 2, ClickGuiTheme.textNormal.argb, true)
-        val trackX = x + 4
-        val trackW = width - 8
-        val trackY = y + ROW_HEIGHT - SLIDER_HEIGHT - 3
-        context.fill(trackX, trackY, trackX + trackW, trackY + SLIDER_HEIGHT, ClickGuiTheme.sliderTrack.argb)
+        context.text(mc.font, valueText, x + width - tw - 6, y + 2, ClickGuiTheme.textPrimary.argb, true)
+
+        val trackX = x + 6
+        val trackW = width - 12
+        val trackY = y + ROW_HEIGHT - SLIDER_HEIGHT - 5
+        context.drawRoundedRect(
+            trackX.toFloat(), trackY.toFloat(),
+            (trackX + trackW).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+            (SLIDER_HEIGHT / 2f),
+            fillColor = ClickGuiTheme.sliderBg,
+        )
         val span = (rangeMax() - rangeMin()).coerceAtLeast(0.0001f)
         val ratio = ((raw - rangeMin()) / span).coerceIn(0f, 1f)
-        val filled = (trackW * ratio).toInt()
-        context.fill(trackX, trackY, trackX + filled, trackY + SLIDER_HEIGHT, ClickGuiTheme.sliderFill.argb)
+        val filled = (trackW * ratio).toInt().coerceAtLeast(0)
+        if (filled > 0) {
+            context.drawRoundedRect(
+                trackX.toFloat(), trackY.toFloat(),
+                (trackX + filled).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+                (SLIDER_HEIGHT / 2f),
+                fillColor = ClickGuiTheme.sliderFill,
+            )
+        }
         val knobX = trackX + filled - SLIDER_KNOB / 2
-        val knobY = trackY - 1
-        context.fill(knobX, knobY, knobX + SLIDER_KNOB, knobY + SLIDER_HEIGHT + 2, ClickGuiTheme.sliderKnob.argb)
+        val knobY = trackY - (SLIDER_KNOB - SLIDER_HEIGHT) / 2
+        context.drawRoundedRect(
+            knobX.toFloat(), knobY.toFloat(),
+            (knobX + SLIDER_KNOB).toFloat(), (knobY + SLIDER_KNOB).toFloat(),
+            (SLIDER_KNOB / 2f),
+            fillColor = ClickGuiTheme.sliderKnob,
+        )
         return ROW_HEIGHT
     }
 
@@ -367,7 +402,7 @@ class FloatSetting(override val value: RangedValue<*>) : GenericSetting() {
 
     override fun mouseDragged(mouseX: Int, mouseY: Int, button: Int, dragX: Double, dragY: Double): Boolean {
         if (dragging) {
-            val trackW = rowWidth - 8
+            val trackW = rowWidth - 12
             val delta = (mouseX - dragStartX).toFloat()
             val span = (rangeMax() - rangeMin()).coerceAtLeast(0.0001f)
             val newVal = dragStartVal + (delta / trackW.coerceAtLeast(1)) * span
@@ -379,34 +414,36 @@ class FloatSetting(override val value: RangedValue<*>) : GenericSetting() {
 }
 
 class ChoiceSetting(override val value: ChoiceListValue<*>) : GenericSetting() {
-    override val height: Int = ROW_HEIGHT
+    override val height: Int = ROW_HEIGHT + 2
 
     override fun render(
         context: GuiGraphicsExtractor,
-        x: Int,
-        y: Int,
-        width: Int,
-        mouseX: Int,
-        mouseY: Int,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
         partialTick: Float,
         hovered: Boolean,
     ): Int {
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
-        context.drawTextClipped(
-            displayName, x + 4, y + (ROW_HEIGHT - 8) / 2,
-            if (hovered) ClickGuiTheme.textNormal else ClickGuiTheme.textDimmed,
-            width - 4 - ARROW_W * 2 - 8 - 60
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
+        drawTextClipped(
+            context, displayName, x + 6, y + (ROW_HEIGHT - 8) / 2,
+            if (hovered) ClickGuiTheme.textPrimary else ClickGuiTheme.textSecondary,
+            width - 80
         )
         val active = value.get() ?: return ROW_HEIGHT
         val text = active.tag
         val tw = mc.font.width(text)
-        val textX = x + width - ARROW_W * 2 - tw - 8
-        context.text(mc.font, text, textX, y + (ROW_HEIGHT - 8) / 2, ClickGuiTheme.textNormal.argb, true)
+        val textX = x + width - tw - 24
+        context.text(mc.font, text, textX, y + (ROW_HEIGHT - 8) / 2, ClickGuiTheme.accent.argb, true)
+
+        val arrowX = x + width - 16
         val arrowY = y + ROW_HEIGHT / 2
-        val leftX = x + width - ARROW_W * 2 - 4
-        val rightX = x + width - ARROW_W - 2
-        context.fill(leftX + 2, arrowY - 2, leftX + ARROW_W - 2, arrowY + 1, ClickGuiTheme.textDimmed.argb)
-        context.fill(rightX + 2, arrowY - 1, rightX + ARROW_W - 2, arrowY + 1, ClickGuiTheme.textDimmed.argb)
+        context.fill(arrowX - 3, arrowY - 2, arrowX, arrowY + 1, ClickGuiTheme.textDimmed.argb)
+        context.fill(arrowX + 3, arrowY - 2, arrowX + 6, arrowY + 1, ClickGuiTheme.textDimmed.argb)
         return ROW_HEIGHT
     }
 
@@ -429,46 +466,58 @@ class ColorSetting(override val value: Value<Color4b>) : GenericSetting() {
 
     override fun render(
         context: GuiGraphicsExtractor,
-        x: Int,
-        y: Int,
-        width: Int,
-        mouseX: Int,
-        mouseY: Int,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
         partialTick: Float,
         hovered: Boolean,
     ): Int {
         rowWidth = width
-        context.fill(x, y, x + width, y + height, ClickGuiTheme.settingsBg.argb)
-        context.text(mc.font, displayName, x + 4, y + 2, ClickGuiTheme.textNormal.argb, true)
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + height).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
+        context.text(mc.font, displayName, x + 6, y + 3, ClickGuiTheme.textPrimary.argb, true)
         val c = value.get()
-        val swatchX = x + width - 18
-        val swatchY = y + 2
-        context.fill(swatchX, swatchY, swatchX + 14, swatchY + 14, c.argb)
-        val sliderX = x + 4
-        val sliderW = width - 8
+        context.drawRoundedRect(
+            (x + width - 20).toFloat(), (y + 3).toFloat(),
+            (x + width - 6).toFloat(), (y + 17).toFloat(),
+            3f,
+            fillColor = c,
+            outlineColor = ClickGuiTheme.borderLight,
+            outlineWidth = 1f,
+        )
+        val sliderX = x + 6
+        val sliderW = width - 12
         val comps = intArrayOf(c.r, c.g, c.b, c.a)
         for (idx in 0..3) {
             val trackY = y + ROW_HEIGHT + idx * 8
-            context.fill(sliderX, trackY, sliderX + sliderW, trackY + SLIDER_HEIGHT, ClickGuiTheme.sliderTrack.argb)
+            context.drawRoundedRect(
+                sliderX.toFloat(), trackY.toFloat(),
+                (sliderX + sliderW).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+                (SLIDER_HEIGHT / 2f),
+                fillColor = ClickGuiTheme.sliderBg,
+            )
             val ratio = comps[idx] / 255f
-            val filled = (sliderW * ratio).toInt()
-            context.fill(sliderX, trackY, sliderX + filled, trackY + SLIDER_HEIGHT, ClickGuiTheme.sliderFill.argb)
+            val filled = (sliderW * ratio).toInt().coerceAtLeast(0)
+            if (filled > 0) {
+                context.drawRoundedRect(
+                    sliderX.toFloat(), trackY.toFloat(),
+                    (sliderX + filled).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+                    (SLIDER_HEIGHT / 2f),
+                    fillColor = ClickGuiTheme.sliderFill,
+                )
+            }
             val knobX = sliderX + filled - SLIDER_KNOB / 2
-            context.fill(knobX, trackY - 1, knobX + SLIDER_KNOB, trackY + SLIDER_HEIGHT + 2, ClickGuiTheme.sliderKnob.argb)
+            context.drawRoundedRect(
+                knobX.toFloat(), (trackY - 1).toFloat(),
+                (knobX + SLIDER_KNOB).toFloat(), (trackY + SLIDER_HEIGHT + 2).toFloat(),
+                (SLIDER_KNOB / 2f),
+                fillColor = ClickGuiTheme.sliderKnob,
+            )
         }
         return height
-    }
-
-    private fun sliderAt(my: Int, y: Int): Int {
-        val rel = my - (y + ROW_HEIGHT)
-        return when {
-            rel < 0 -> -1
-            rel < 8 -> 0
-            rel < 16 -> 1
-            rel < 24 -> 2
-            rel < 32 -> 3
-            else -> -1
-        }
     }
 
     override fun mouseClicked(mouseX: Int, mouseY: Int, button: Int): Boolean {
@@ -490,13 +539,14 @@ class ColorSetting(override val value: Value<Color4b>) : GenericSetting() {
     }
 }
 
-/**
- * Multi‑select list. Shows selected item tags as a compact comma‑separated
- * list. **Left‑click** selects the first currently‑unselected choice;
- * **right‑click** deselects the most recently selected choice.
- */
 class MultiEnumSetting(override val value: MultiChoiceListValue<*>) : GenericSetting() {
-    override val height: Int = ROW_HEIGHT
+    private var expanded: Boolean = false
+    private val checkboxRow = 18
+    private val checkSize = 8
+    private var renderY: Int = 0
+
+    override val height: Int
+        get() = if (expanded) ROW_HEIGHT + value.choices.size * checkboxRow else ROW_HEIGHT
 
     private val typed: MultiChoiceListValue<Tagged>
         @Suppress("UNCHECKED_CAST")
@@ -510,39 +560,104 @@ class MultiEnumSetting(override val value: MultiChoiceListValue<*>) : GenericSet
         partialTick: Float,
         hovered: Boolean,
     ): Int {
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
-        context.drawTextClipped(
-            displayName, x + 4, y + (ROW_HEIGHT - 8) / 2,
-            if (hovered) ClickGuiTheme.textNormal else ClickGuiTheme.textDimmed,
+        renderY = y
+        val headerHovered = mouseX in x..(x + width) && mouseY in y..(y + ROW_HEIGHT)
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
+        drawTextClipped(
+            context, displayName, x + 6, y + (ROW_HEIGHT - 8) / 2,
+            if (headerHovered) ClickGuiTheme.textPrimary else ClickGuiTheme.textSecondary,
             width - 60
         )
         val selected = value.get()
         val tags = selected.joinToString(", ") { (it as Tagged).tag }
         val summary = if (tags.length <= 28) tags else "${selected.size} / ${value.choices.size}"
         val tw = mc.font.width(summary)
-        context.text(mc.font, summary, x + width - tw - 4, y + (ROW_HEIGHT - 8) / 2,
-            ClickGuiTheme.textNormal.argb, true)
-        return ROW_HEIGHT
+        context.text(
+            mc.font, summary,
+            x + width - tw - 6, y + (ROW_HEIGHT - 8) / 2,
+            ClickGuiTheme.accent.argb, true
+        )
+
+        val arrowX = x + width - 16
+        val arrowY = y + ROW_HEIGHT / 2
+        val arrowColor = if (expanded) ClickGuiTheme.accent else ClickGuiTheme.textDimmed
+        if (expanded) {
+            context.fill(arrowX - 3, arrowY, arrowX, arrowY + 1, arrowColor.argb)
+            context.fill(arrowX - 2, arrowY - 1, arrowX - 1, arrowY, arrowColor.argb)
+        } else {
+            context.fill(arrowX - 3, arrowY - 1, arrowX, arrowY, arrowColor.argb)
+            context.fill(arrowX - 1, arrowY, arrowX, arrowY + 3, arrowColor.argb)
+        }
+
+        if (expanded) {
+            val choices = value.choices.toList()
+            var cy = y + ROW_HEIGHT
+            for (choice in choices) {
+                val isSelected = choice in selected
+                val itemHovered = mouseX in x..(x + width) && mouseY in cy..(cy + checkboxRow)
+
+                if (itemHovered) {
+                    context.drawRoundedRect(
+                        (x + 2).toFloat(), cy.toFloat(),
+                        (x + width - 2).toFloat(), (cy + checkboxRow).toFloat(),
+                        3f,
+                        fillColor = ClickGuiTheme.bgCardHover,
+                    )
+                }
+
+                val checkX = x + 10
+                val checkY = cy + (checkboxRow - checkSize) / 2
+                context.drawRoundedRect(
+                    checkX.toFloat(), checkY.toFloat(),
+                    (checkX + checkSize).toFloat(), (checkY + checkSize).toFloat(),
+                    2f,
+                    fillColor = if (isSelected) ClickGuiTheme.toggleEnabled else ClickGuiTheme.toggleBg,
+                )
+                if (isSelected) {
+                    context.fill(checkX + 2, checkY + 3, checkX + 3, checkY + 5, ClickGuiTheme.toggleKnob.argb)
+                    context.fill(checkX + 3, checkY + 5, checkX + 5, checkY + 3, ClickGuiTheme.toggleKnob.argb)
+                    context.fill(checkX + 5, checkY + 3, checkX + 6, checkY + 2, ClickGuiTheme.toggleKnob.argb)
+                }
+
+                val labelX = checkX + checkSize + 6
+                context.text(
+                    mc.font, choice.tag,
+                    labelX, cy + (checkboxRow - 8) / 2,
+                    if (isSelected) ClickGuiTheme.textPrimary.argb else ClickGuiTheme.textSecondary.argb,
+                    true
+                )
+                cy += checkboxRow
+            }
+        }
+        return height
     }
 
     override fun mouseClicked(mouseX: Int, mouseY: Int, button: Int): Boolean {
-        val choices = value.choices.toList()
-        val current = value.get()
         if (button == 0) {
-            val next = choices.firstOrNull { it !in current }
-            if (next != null) {
-                typed.toggle(next)
+            if (!expanded) {
+                expanded = true
+                return true
+            }
+            val choices = value.choices.toList()
+            val listStartY = renderY + ROW_HEIGHT
+            val relY = mouseY - listStartY
+            val choiceIndex = relY / checkboxRow
+            if (choiceIndex in choices.indices && relY >= 0) {
+                typed.toggle(choices[choiceIndex])
                 return true
             }
             return false
         }
         if (button == 1) {
-            val last = current.lastOrNull()
-            if (last != null) {
-                typed.toggle(last)
+            if (expanded) {
+                expanded = false
                 return true
             }
-            return false
         }
         return false
     }
@@ -553,17 +668,21 @@ class ModeGroupSetting(override val value: ModeValueGroup<*>) : GenericSetting()
 
     override fun render(
         context: GuiGraphicsExtractor,
-        x: Int,
-        y: Int,
-        width: Int,
-        mouseX: Int,
-        mouseY: Int,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
         partialTick: Float,
         hovered: Boolean,
     ): Int {
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBorder.argb)
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.accentGlow,
+            outlineColor = ClickGuiTheme.borderAccent,
+            outlineWidth = 1f,
+        )
         val text = "${displayName}: ${value.activeMode.tag}"
-        context.text(mc.font, text, x + 4, y + (ROW_HEIGHT - 8) / 2, Color4b.WHITE.argb, true)
+        context.text(mc.font, text, x + 6, y + (ROW_HEIGHT - 8) / 2, ClickGuiTheme.textPrimary.argb, true)
         return ROW_HEIGHT
     }
 
@@ -584,26 +703,28 @@ class BindSetting(override val value: BindValue) : GenericSetting() {
 
     override fun render(
         context: GuiGraphicsExtractor,
-        x: Int,
-        y: Int,
-        width: Int,
-        mouseX: Int,
-        mouseY: Int,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
         partialTick: Float,
         hovered: Boolean,
     ): Int {
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
-        context.drawTextClipped(
-            displayName, x + 4, y + (ROW_HEIGHT - 8) / 2,
-            if (hovered) ClickGuiTheme.textNormal else ClickGuiTheme.textDimmed,
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
+        drawTextClipped(
+            context, displayName, x + 6, y + (ROW_HEIGHT - 8) / 2,
+            if (hovered) ClickGuiTheme.textPrimary else ClickGuiTheme.textSecondary,
             width - 60
         )
         val bind = value.get()
         val label = if (waitingForKey) "..." else bind.keyName
         val tw = mc.font.width(label)
         context.text(
-            mc.font, label, x + width - tw - 4, y + (ROW_HEIGHT - 8) / 2,
-            if (waitingForKey) ClickGuiTheme.moduleHighlight.argb else ClickGuiTheme.textNormal.argb,
+            mc.font, label, x + width - tw - 6, y + (ROW_HEIGHT - 8) / 2,
+            if (waitingForKey) ClickGuiTheme.accent.argb else ClickGuiTheme.textPrimary.argb,
             true
         )
         return ROW_HEIGHT
@@ -635,10 +756,6 @@ class BindSetting(override val value: BindValue) : GenericSetting() {
     }
 }
 
-/**
- * Read‑only display for [ValueType.TEXT] values. Shows the current string
- * and preserves the Y‑offset without allowing inline editing.
- */
 class TextSetting(override val value: Value<String>) : GenericSetting() {
     override val height: Int = ROW_HEIGHT
 
@@ -649,10 +766,15 @@ class TextSetting(override val value: Value<String>) : GenericSetting() {
         partialTick: Float,
         hovered: Boolean,
     ): Int {
-        context.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiTheme.settingsBg.argb)
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
         val text = "${displayName}: ${value.get()}"
-        context.drawTextClipped(text, x + 4, y + (ROW_HEIGHT - 8) / 2,
-            ClickGuiTheme.valueTextDimmed, width - 8)
+        drawTextClipped(context, text, x + 6, y + (ROW_HEIGHT - 8) / 2,
+            ClickGuiTheme.textDimmed, width - 12)
         return ROW_HEIGHT
     }
 }

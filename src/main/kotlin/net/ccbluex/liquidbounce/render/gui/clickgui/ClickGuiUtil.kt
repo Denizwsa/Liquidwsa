@@ -18,11 +18,5 @@
  */
 package net.ccbluex.liquidbounce.render.gui.clickgui
 
-import net.ccbluex.liquidbounce.features.module.ClientModule
-
-/**
- * Search is now integrated into [ContentArea]. This object is retained
- * for compatibility with external references.
- */
-@Deprecated("Search is handled by ContentArea internally")
-fun searchModules(query: String): List<ClientModule> = emptyList()
+internal fun spacedName(name: String): String =
+    name.replace("([a-z])([A-Z])".toRegex(), "$1 $2").replace("_", " ")

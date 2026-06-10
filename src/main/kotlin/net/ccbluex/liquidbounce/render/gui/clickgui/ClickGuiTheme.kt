@@ -20,55 +20,68 @@ package net.ccbluex.liquidbounce.render.gui.clickgui
 
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 
-/**
- * Design tokens for the Java-side ClickGUI. Colors, spacing, and animation
- * timings mirror the Svelte WebUI CSS variables that ship with the original
- * LiquidBounce-nextgen theme so the Java port feels visually identical.
- */
 object ClickGuiTheme {
-    val textDimmed = Color4b(170, 170, 170, 255)
-    val textNormal = Color4b(255, 255, 255, 255)
-    val moduleRowBg = Color4b(0, 0, 0, 20)
-    val moduleHoverBg = Color4b(255, 255, 255, 13)
-    val moduleEnabled = Color4b(74, 143, 255, 255)
-    val moduleHighlight = Color4b(255, 200, 80, 255)
-    val settingsBg = Color4b(0, 0, 0, 90)
-    val settingsPanelBg = Color4b(0, 0, 0, 55)
-    val settingsBorder = Color4b(74, 143, 255, 255)
-    val panelBg = Color4b(20, 20, 20, 230)
-    val panelHeaderBg = Color4b(40, 40, 40, 240)
-    val panelHeaderText = Color4b(255, 255, 255, 255)
-    val searchBarBg = Color4b(20, 20, 20, 220)
-    val searchBarFocus = Color4b(74, 143, 255, 255)
-    val searchResultSelected = Color4b(74, 143, 255, 60)
-    val descriptionBg = Color4b(20, 20, 20, 245)
-    val descriptionText = Color4b(220, 220, 220, 255)
-    val descriptionAlias = Color4b(140, 140, 140, 255)
-    val separatorLine = Color4b(255, 255, 255, 18)
-    val checkboxOff = Color4b(80, 80, 80, 200)
-    val checkboxOn = Color4b(74, 143, 255, 255)
-    val sliderTrack = Color4b(80, 80, 80, 200)
+    val accent = Color4b(74, 143, 255, 255)
+    val accentDim = Color4b(74, 143, 255, 80)
+    val accentGlow = Color4b(74, 143, 255, 30)
+
+    val bgPrimary = Color4b(12, 12, 16, 240)
+    val bgSecondary = Color4b(18, 18, 24, 230)
+    val bgContent = Color4b(14, 14, 20, 220)
+    val bgCard = Color4b(24, 24, 32, 200)
+    val bgCardHover = Color4b(34, 34, 44, 200)
+    val bgCardEnabled = Color4b(74, 143, 255, 25)
+    val bgInput = Color4b(30, 30, 40, 200)
+
+    val textPrimary = Color4b(235, 235, 245, 255)
+    val textSecondary = Color4b(160, 160, 175, 255)
+    val textDimmed = Color4b(110, 110, 125, 255)
+
+    val border = Color4b(40, 40, 50, 200)
+    val borderLight = Color4b(55, 55, 65, 200)
+    val borderAccent = Color4b(74, 143, 255, 180)
+
+    val toggleBg = Color4b(50, 50, 60, 200)
+    val toggleEnabled = Color4b(74, 143, 255, 255)
+    val toggleKnob = Color4b(255, 255, 255, 255)
+    val toggleKnobOff = Color4b(180, 180, 190, 255)
+
+    val sliderBg = Color4b(45, 45, 55, 200)
     val sliderFill = Color4b(74, 143, 255, 255)
     val sliderKnob = Color4b(255, 255, 255, 255)
-    val valueTextDimmed = Color4b(170, 170, 170, 255)
 
-    val gridSize: Float = 8f
-    val snapEnabled: Boolean = true
+    val sidebarBg = Color4b(16, 16, 22, 240)
+    val sidebarItemBg = Color4b(255, 255, 255, 6)
+    val sidebarItemHover = Color4b(255, 255, 255, 12)
+    val sidebarItemActive = Color4b(74, 143, 255, 25)
+    val sidebarIndicator = Color4b(74, 143, 255, 255)
+    val sidebarText = Color4b(160, 160, 175, 255)
+    val sidebarTextActive = Color4b(235, 235, 245, 255)
 
-    const val panelHeaderHeight: Int = 18
-    const val panelMinWidth: Int = 90
-    const val panelBorderRadius: Float = 0f
-    const val moduleRowHeight: Int = 22
-    const val settingsRowHeight: Int = 20
-    const val searchBarHeight: Int = 22
-    const val searchBarWidth: Int = 240
-    const val searchResultHeight: Int = 18
-    const val descriptionMaxWidth: Int = 220
-    const val expandArrowSize: Float = 6f
+    val descriptionBg = Color4b(20, 20, 28, 245)
+    val descriptionText = Color4b(210, 210, 220, 255)
+    val descriptionAlias = Color4b(140, 140, 155, 255)
 
-    const val fadeMs: Int = 200
-    const val slideMs: Int = 500
-    const val descriptionFadeMs: Int = 120
+    val scrollbarBg = Color4b(255, 255, 255, 10)
+    val scrollbarThumb = Color4b(74, 143, 255, 150)
 
-    val zIndexBase: Int = 0
+    val notificationBg = Color4b(20, 20, 28, 220)
+    val notificationBorder = Color4b(50, 50, 64, 200)
+
+    const val sidebarWidth = 100
+    const val sidebarItemHeight = 38
+    const val sidebarRadius = 8f
+    const val contentPadding = 12
+    const val cardRadius = 8f
+    const val cardGap = 6
+    const val cardHeight = 36
+    const val searchHeight = 32
+    const val toggleWidth = 36
+    const val toggleHeight = 16
+    const val sliderHeight = 4
+    const val sliderKnobSize = 8
+    const val scrollbarWidth = 3
+
+    const val animSlideMs = 300
+    const val animFadeMs = 150
 }
