@@ -108,6 +108,17 @@ class AccountManagerScreen(private val parent: Screen?) : Screen(Component.liter
         }.bounds(
             px + 4, microsoftY, pw, 20,
         ).build().also { addRenderableWidget(it) }
+
+        val cookieY = microsoftY + 24
+        addRenderableWidget(
+            Button.builder(
+                Component.literal("Login with Cookie"),
+            ) {
+                mc.setScreen(CookieLoginScreen(this@AccountManagerScreen))
+            }.bounds(
+                px + 4, cookieY, pw, 20,
+            ).build()
+        )
     }
 
     override fun removed() {
