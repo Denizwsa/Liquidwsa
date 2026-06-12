@@ -191,6 +191,7 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleBedPlates
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleBetterInventory
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleBlockESP
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleBlockOutline
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleBlockAnimation
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleBreadcrumbs
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleChams
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleClickGui
@@ -624,6 +625,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleAntiBlind,
             ModuleArrayList,
             ModuleBetterInventory,
+            ModuleBlockAnimation,
             ModuleBlockESP,
             ModuleBlockOutline,
             ModuleBreadcrumbs,

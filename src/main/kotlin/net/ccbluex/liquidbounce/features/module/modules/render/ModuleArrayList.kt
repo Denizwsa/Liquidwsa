@@ -25,19 +25,13 @@ import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleManager
-import net.ccbluex.liquidbounce.render.drawRoundedRect
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.render.withPush
 import net.ccbluex.liquidbounce.utils.client.mc
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.Font
 import net.minecraft.util.Mth
 
-/**
- * Vanilla-style ArrayList HUD.
- *
- * Renders the names of all enabled, in-game modules on the configured side
- * of the screen. Each module row fades in/out with a configurable duration.
- * A [ColorScheme] preset can be selected to override the colors instantly.
- * Modules can be hidden individually via the [arrayListHidden] set.
- */
 @Suppress("MagicNumber")
 object ModuleArrayList : ClientModule(
     name = "ArrayList",
@@ -45,105 +39,43 @@ object ModuleArrayList : ClientModule(
     state = true,
 ) {
 
-    private val colorScheme by enumChoice("ColorScheme", ColorScheme.LIQUID_BOUNCE)
-    private val background by boolean("Background", true)
-    private val outline by boolean("Outline", true)
-    private val shadow by boolean("Shadow", true)
-    private val side by enumChoice("Side", Side.RIGHT)
+    private val style by enumChoice("Style", Style.SIMPLE)
+    private val side by enumChoice("Side", Side.LEFT)
     private val sort by enumChoice("Sort", Sort.WIDTH)
     private val upperCase by boolean("UpperCase", false)
-    private val textColor by color("Color", Color4b(255, 255, 255, 255))
-    private val tagColor by color("TagColor", Color4b(170, 170, 170, 255))
-    private val backgroundColor by color("BackgroundColor", Color4b(0, 0, 0, 110))
-    private val outlineColor by color("OutlineColor", Color4b(0, 0, 0, 200))
+    private val showTags by boolean("ShowTags", false)
+    private val showLogo by boolean("ShowLogo", true)
+    private val logoSize by int("LogoSize", 40, 16..80)
+    private val glowEnabled by boolean("Glow", true)
+    private val glowRadius by int("GlowRadius", 3, 1..8)
     private val yOffset by int("YOffset", 4, 0..200)
     private val lineHeight by int("LineHeight", 11, 8..24)
-    private val fadeAnimation by boolean("FadeAnimation", true)
-    private val fadeDuration by int("FadeDuration", 200, 50..1000)
-    private val showTags by boolean("ShowTags", true)
+    private val fadeDuration by int("FadeDuration", 150, 0..500)
+    private val primaryColor by color("PrimaryColor", Color4b(74, 143, 255, 255))
+    private val bgColor by color("BgColor", Color4b(0, 0, 0, 80))
+    private val textColor by color("TextColor", Color4b(255, 255, 255, 200))
+    private val tagColor by color("TagColor", Color4b(170, 170, 170, 180))
+
+    private enum class Style(override val tag: String) : Tagged {
+        SIMPLE("Simple"),
+        VAPE("Vape V4");
+        override fun toString() = tag
+    }
 
     private enum class Side(override val tag: String) : Tagged {
-        LEFT("left"),
-        RIGHT("right");
-
+        LEFT("Left"),
+        RIGHT("Right");
         override fun toString() = tag
     }
 
     private enum class Sort(override val tag: String) : Tagged {
-        WIDTH("width"),
-        LENGTH("length"),
-        ALPHABET("alphabet");
-
+        WIDTH("Width"),
+        LENGTH("Length"),
+        ALPHABET("Alphabet");
         override fun toString() = tag
     }
 
-    /**
-     * Built-in color presets. Selecting one of these overrides the
-     * individual `textColor`/`tagColor`/`backgroundColor`/`outlineColor`
-     * settings. The [ColorScheme.CUSTOM] option uses the user-defined colors.
-     */
-    private enum class ColorScheme(
-        override val tag: String,
-        val textColor: Color4b,
-        val tagColor: Color4b,
-        val backgroundColor: Color4b,
-        val outlineColor: Color4b,
-    ) : Tagged {
-        LIQUID_BOUNCE(
-            "LiquidBounce",
-            Color4b(74, 143, 255, 255),
-            Color4b(170, 170, 170, 255),
-            Color4b(0, 0, 0, 110),
-            Color4b(0, 0, 0, 200),
-        ),
-        RED(
-            "Red",
-            Color4b(255, 64, 96, 255),
-            Color4b(255, 160, 170, 255),
-            Color4b(40, 8, 16, 140),
-            Color4b(80, 16, 32, 200),
-        ),
-        ORANGE(
-            "Orange",
-            Color4b(255, 144, 64, 255),
-            Color4b(255, 200, 160, 255),
-            Color4b(40, 24, 8, 140),
-            Color4b(80, 48, 16, 200),
-        ),
-        CYAN(
-            "Cyan",
-            Color4b(64, 224, 255, 255),
-            Color4b(180, 240, 255, 255),
-            Color4b(8, 28, 40, 140),
-            Color4b(16, 56, 80, 200),
-        ),
-        PINK(
-            "Pink",
-            Color4b(255, 96, 192, 255),
-            Color4b(255, 192, 224, 255),
-            Color4b(40, 12, 32, 140),
-            Color4b(80, 24, 64, 200),
-        ),
-        CUSTOM(
-            "Custom",
-            Color4b(255, 255, 255, 255),
-            Color4b(170, 170, 170, 255),
-            Color4b(0, 0, 0, 110),
-            Color4b(0, 0, 0, 200),
-        );
-
-        override fun toString() = tag
-    }
-
-    /**
-     * Modules that should be excluded from the array list. Public so that
-     * future ClickGUI or commands can toggle entries.
-     */
-    val arrayListHidden: MutableSet<ClientModule> = mutableSetOf()
-
-    /** Per-module fade alpha. 0 = fully hidden, 1 = fully visible. */
     private val fadeState: MutableMap<ClientModule, Float> = mutableMapOf()
-
     private var lastFrameTime: Long = System.nanoTime()
 
     @Suppress("unused")
@@ -160,126 +92,204 @@ object ModuleArrayList : ClientModule(
         lastFrameTime = now
 
         val modules = ModuleManager
-            .filter { it !== this && !arrayListHidden.contains(it) }
+            .filter { it !== this && it.category != ModuleCategories.RENDER && !it.hidden }
             .toList()
         if (modules.isEmpty()) return@handler
 
-        if (fadeAnimation) {
-            val step = if (fadeDuration > 0) dtSec / (fadeDuration / 1000f) else 1f
-            for (m in modules) {
-                val target = if (m.running) 1f else 0f
-                val current = fadeState[m] ?: target
-                val next = if (current < target) {
-                    Mth.lerp(step.coerceIn(0f, 1f), current, target).coerceAtMost(target)
-                } else if (current > target) {
-                    Mth.lerp(step.coerceIn(0f, 1f), current, target).coerceAtLeast(target)
-                } else current
-                fadeState[m] = next
+        val step = if (fadeDuration > 0) dtSec / (fadeDuration / 1000f) else 10f
+        for (m in modules) {
+            val target = if (m.running) 1f else 0f
+            val current = fadeState[m] ?: target
+            fadeState[m] = when {
+                current < target -> Mth.lerp(step.coerceIn(0f, 1f), current, target).coerceAtMost(target)
+                current > target -> Mth.lerp(step.coerceIn(0f, 1f), current, target).coerceAtLeast(target)
+                else -> current
             }
-            fadeState.entries.removeAll { (m, v) -> v <= 0.001f && !m.running }
-        } else {
-            for (m in modules) {
-                fadeState[m] = if (m.running) 1f else 0f
-            }
-            fadeState.keys.retainAll(modules)
         }
+        fadeState.entries.removeAll { (m, v) -> v <= 0.001f && !m.running }
 
         val visible = modules.filter { (fadeState[it] ?: 0f) > 0.01f && it.running }
 
         val sorted = when (sort) {
-            Sort.WIDTH -> visible.sortedByDescending { font.width(displayNameWithTag(it)) }
-            Sort.LENGTH -> visible.sortedByDescending { displayNameWithTag(it).length }
-            Sort.ALPHABET -> visible.sortedBy { displayNameWithTag(it).lowercase() }
+            Sort.WIDTH -> visible.sortedByDescending { font.width(moduleText(it)) }
+            Sort.LENGTH -> visible.sortedByDescending { moduleText(it).length }
+            Sort.ALPHABET -> visible.sortedBy { moduleText(it).lowercase() }
         }
         if (sorted.isEmpty()) return@handler
 
-        // Resolve effective colors based on the active scheme
-        val scheme = colorScheme
-        val effectiveText = if (scheme == ColorScheme.CUSTOM) textColor else scheme.textColor
-        val effectiveTag = if (scheme == ColorScheme.CUSTOM) tagColor else scheme.tagColor
-        val effectiveBg = if (scheme == ColorScheme.CUSTOM) backgroundColor else scheme.backgroundColor
-        val effectiveOutline = if (scheme == ColorScheme.CUSTOM) outlineColor else scheme.outlineColor
-
-        val screenWidth = context.guiWidth()
-        val margin = 4
-        var y = yOffset
-
-        for (module in sorted) {
-            val alpha = (fadeState[module] ?: 1f).coerceIn(0f, 1f)
-            val text = displayNameWithTag(module)
-            val tag = if (showTags) module.tag else null
-            val fullText = if (tag != null) "$text $tag" else text
-            val textWidth = font.width(fullText)
-            val xText: Int
-            val xBgStart: Int
-            val xBgEnd: Int
-            when (side) {
-                Side.RIGHT -> {
-                    xText = screenWidth - textWidth - margin
-                    xBgStart = xText - 3
-                    xBgEnd = screenWidth
-                }
-                Side.LEFT -> {
-                    xText = margin
-                    xBgStart = xText - 3
-                    xBgEnd = xText + textWidth + 3
-                }
-            }
-
-            val bgAlpha = (effectiveBg.a * alpha).toInt().coerceIn(0, 255)
-            val outAlpha = (effectiveOutline.a * alpha).toInt().coerceIn(0, 255)
-            val textAlpha = (effectiveText.a * alpha).toInt().coerceIn(0, 255)
-            val tagAlpha = (effectiveTag.a * alpha).toInt().coerceIn(0, 255)
-
-            if (background) {
-                with(context) {
-                    drawRoundedRect(
-                        xBgStart.toFloat(), y.toFloat() - 1f,
-                        xBgEnd.toFloat(), (y + lineHeight - 1).toFloat(), 2f,
-                        fillColor = Color4b(
-                            effectiveBg.r, effectiveBg.g, effectiveBg.b, bgAlpha
-                        ),
-                    )
-                }
-            }
-            if (outline) {
-                with(context) {
-                    drawRoundedRect(
-                        xBgStart.toFloat(), y.toFloat() - 1f,
-                        xBgEnd.toFloat(), (y + lineHeight - 1).toFloat(), 2f,
-                        fillColor = Color4b.TRANSPARENT,
-                        outlineColor = Color4b(
-                            effectiveOutline.r, effectiveOutline.g, effectiveOutline.b, outAlpha
-                        ),
-                        outlineWidth = 1.0f,
-                    )
-                }
-            }
-
-            context.text(
-                font, text,
-                xText, y,
-                Color4b(effectiveText.r, effectiveText.g, effectiveText.b, textAlpha).argb,
-                shadow,
-            )
-
-            if (tag != null) {
-                val nameW = font.width(text + " ")
-                val tagX = xText + nameW
-                context.text(
-                    font, tag,
-                    tagX, y,
-                    Color4b(effectiveTag.r, effectiveTag.g, effectiveTag.b, tagAlpha).argb,
-                    shadow,
-                )
-            }
-
-            y += lineHeight
-            if (y > context.guiHeight() - lineHeight) break
+        when (style) {
+            Style.SIMPLE -> renderSimple(context, sorted, font)
+            Style.VAPE -> renderVape(context, sorted, font)
         }
     }
 
-    private fun displayNameWithTag(module: ClientModule): String {
+    private fun renderLogo(context: GuiGraphicsExtractor, x: Int, y: Int) {
+        val font = mc.font
+        val text = "LIQUIDWSA"
+        val tw = font.width(text)
+        val tsz = logoSize
+        val scale = tsz.toFloat() / tw.coerceAtLeast(1)
+        context.pose().withPush {
+            context.pose().translate(x.toFloat(), y.toFloat())
+            context.pose().scale(scale, scale)
+            context.text(font, text, 0, 0, primaryColor.argb, true)
+        }
+    }
+
+    private fun renderSimple(
+        context: GuiGraphicsExtractor,
+        sorted: List<ClientModule>,
+        font: Font,
+    ) {
+        val screenWidth = context.guiWidth()
+        val screenH = context.guiHeight()
+        val margin = 2
+        var y = yOffset.toFloat()
+
+        if (showLogo) {
+            renderLogo(context, margin, y.toInt())
+            y += logoSize + 2
+        }
+
+        for (module in sorted) {
+            val alpha = (fadeState[module] ?: 1f).coerceIn(0f, 1f)
+            val name = moduleText(module)
+            val tagStr = module.tag
+            val tag = if (showTags && !tagStr.isNullOrBlank()) " $tagStr" else ""
+            val fullText = "$name$tag"
+            val tw = font.width(fullText)
+            val nameW = font.width(name)
+
+            val xText: Int
+            val xBg0: Float
+            val xBg1: Float
+
+            when (side) {
+                Side.RIGHT -> {
+                    xText = screenWidth - tw - margin
+                    xBg0 = (xText - 3).toFloat()
+                    xBg1 = screenWidth.toFloat()
+                }
+                else -> {
+                    xText = margin
+                    xBg0 = (xText - 3).toFloat()
+                    xBg1 = (xText + tw + 3).toFloat()
+                }
+            }
+
+            val bgA = (bgColor.a * alpha).toInt().coerceIn(0, 255)
+            val txA = (textColor.a * alpha).toInt().coerceIn(0, 255)
+            val tgA = (tagColor.a * alpha).toInt().coerceIn(0, 255)
+
+            if (glowEnabled && alpha > 0.05f) {
+                val glowA = (45 * alpha).toInt().coerceIn(0, 255)
+                val gc = primaryColor
+                context.fill(
+                    (xBg0 - glowRadius).toInt(), (y - 1f - glowRadius).toInt(),
+                    (xBg1 + glowRadius).toInt(), (y + lineHeight - 1f + glowRadius).toInt(),
+                    Color4b(gc.r, gc.g, gc.b, (glowA * 0.15f).toInt().coerceIn(0, 255)).argb,
+                )
+                context.fill(
+                    (xBg0 - 1).toInt(), (y - 2f).toInt(),
+                    (xBg1 + 1).toInt(), (y + lineHeight).toInt(),
+                    Color4b(gc.r, gc.g, gc.b, (glowA * 0.35f).toInt().coerceIn(0, 255)).argb,
+                )
+            }
+
+            context.fill(
+                xBg0.toInt(), (y - 1f).toInt(),
+                xBg1.toInt(), (y + lineHeight - 1f).toInt(),
+                Color4b(bgColor.r, bgColor.g, bgColor.b, bgA).argb,
+            )
+
+            context.text(font, name, xText, y.toInt(),
+                Color4b(textColor.r, textColor.g, textColor.b, txA).argb, true)
+
+            if (tag.isNotBlank()) {
+                context.text(font, tag.trim(), xText + nameW, y.toInt(),
+                    Color4b(tagColor.r, tagColor.g, tagColor.b, tgA).argb, true)
+            }
+
+            y += lineHeight
+            if (y > screenH) break
+        }
+    }
+
+    private fun renderVape(
+        context: GuiGraphicsExtractor,
+        sorted: List<ClientModule>,
+        font: Font,
+    ) {
+        val screenWidth = context.guiWidth()
+        val screenH = context.guiHeight()
+        val margin = 4
+        var y = yOffset.toFloat()
+
+        if (showLogo) {
+            renderLogo(context, margin, y.toInt())
+            y += logoSize + 2
+        }
+
+        // "VAPE" in bold orange, "V4" in bold yellow
+        val vapePart = "VAPE "
+        val v4Part = "V4"
+        val logoFull = "$vapePart$v4Part"
+        val logoWidth = font.width(logoFull)
+        val logoX = screenWidth - logoWidth - margin
+
+        val vapeW = font.width(vapePart)
+        context.text(font, vapePart, logoX, y.toInt(),
+            Color4b(255, 140, 0).argb, true)
+        context.text(font, v4Part, logoX + vapeW, y.toInt(),
+            Color4b(255, 220, 50).argb, true)
+
+        y += lineHeight + 1
+
+        for ((idx, module) in sorted.withIndex()) {
+            val alpha = (fadeState[module] ?: 1f).coerceIn(0f, 1f)
+            val name = moduleText(module)
+            val tagStr = module.tag
+            val tag = if (showTags && !tagStr.isNullOrBlank()) " $tagStr" else ""
+            val fullText = "$name$tag"
+            val tw = font.width(fullText)
+            val nameW = font.width(name)
+
+            val xText = screenWidth - tw - margin
+
+            // Dark glow behind text (shadow effect)
+            if (glowEnabled && alpha > 0.05f) {
+                val glowA = (alpha * 180).toInt().coerceIn(0, 255)
+                context.text(font, name, xText, y.toInt(),
+                    Color4b(0, 0, 0, glowA).argb, false)
+                if (tag.isNotBlank()) {
+                    context.text(font, tag.trim(), xText + nameW, y.toInt(),
+                        Color4b(0, 0, 0, glowA).argb, false)
+                }
+            }
+
+            // Orange (top) to red (bottom) gradient per module
+            val progress = idx.toFloat() / (sorted.size.coerceAtLeast(1) - 1).coerceAtLeast(1)
+            val gradientR = 255
+            val gradientG = (140 - progress * 100).toInt().coerceIn(0, 255)
+            val gradientB = (30 - progress * 30).toInt().coerceIn(0, 255)
+            val txA = (alpha * 255).toInt().coerceIn(0, 255)
+            val moduleColor = Color4b(gradientR, gradientG, gradientB, txA)
+
+            context.text(font, name, xText, y.toInt(),
+                moduleColor.argb, true)
+
+            if (tag.isNotBlank()) {
+                val tgA = (alpha * 200).toInt().coerceIn(0, 255)
+                context.text(font, tag.trim(), xText + nameW, y.toInt(),
+                    Color4b(200, 160, 100, tgA).argb, true)
+            }
+
+            y += lineHeight
+            if (y > screenH) break
+        }
+    }
+
+    private fun moduleText(module: ClientModule): String {
         val base = module.name
         return if (upperCase) base.uppercase() else base
     }

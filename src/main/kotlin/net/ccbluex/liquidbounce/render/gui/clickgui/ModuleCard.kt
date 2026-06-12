@@ -25,6 +25,7 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.render.drawRoundedRect
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.gui.clickgui.setting.GenericSetting
+import net.ccbluex.liquidbounce.render.gui.clickgui.setting.GroupHeaderSetting
 import net.ccbluex.liquidbounce.render.gui.clickgui.setting.createSetting
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -35,16 +36,48 @@ class ModuleCard(val module: ClientModule) {
     var expanded: Boolean = false
     private var expandProgress: Float = 0f
 
-    private val settings: List<GenericSetting> by lazy {
-        val out = mutableListOf<GenericSetting>()
-        for (v in collectRenderableValues(module)) {
-            createSetting(v)?.let(out::add)
+    private val settings: List<Any> by lazy {
+        buildSettingsList()
+    }
+
+    private fun buildSettingsList(): List<Any> {
+        val out = mutableListOf<Any>()
+        val visited = mutableSetOf<ValueGroup>()
+
+        fun walk(parent: Iterable<Value<*>>, groupDepth: Int) {
+            for (v in parent) {
+                if (v.doNotInclude.asBoolean) continue
+                if (v.notAnOption) continue
+                if (v.name.equals("Bind", ignoreCase = true)) continue
+                if (v.name.equals("Hidden", ignoreCase = true)) continue
+                if (v is ModeValueGroup<*>) {
+                    createSetting(v)?.let(out::add)
+                    walk(v.modes, groupDepth)
+                } else if (v is ValueGroup) {
+                    if (visited.add(v)) {
+                        if (groupDepth >= 0 && v.name != module.name) {
+                            out.add(GroupHeaderSetting(v.name))
+                        }
+                        @Suppress("UNCHECKED_CAST")
+                        walk(v.inner as Iterable<Value<*>>, groupDepth + 1)
+                    }
+                } else {
+                    createSetting(v)?.let(out::add)
+                }
+            }
         }
-        out
+        walk((module as Value<*>).inner as Iterable<Value<*>>, 0)
+        return out
     }
 
     val expandedHeight: Int
-        get() = settings.sumOf { it.height } + 8
+        get() = settings.sumOf {
+            when (it) {
+                is GenericSetting -> it.height
+                is GroupHeaderSetting -> it.height
+                else -> 0
+            }
+        } + 8
 
     val fullHeight: Int
         get() = ClickGuiTheme.cardHeight + (expandProgress * expandedHeight).toInt()
@@ -115,12 +148,21 @@ class ModuleCard(val module: ClientModule) {
             var settingsY = y + ClickGuiTheme.cardHeight + 4
 
             for (setting in settings) {
+                val h = when (setting) {
+                    is GenericSetting -> setting.height
+                    is GroupHeaderSetting -> setting.height
+                    else -> continue
+                }
                 val hovered = mouseX in settingsX..(settingsX + settingsW) &&
-                    mouseY in settingsY..(settingsY + setting.height)
+                    mouseY in settingsY..(settingsY + h)
                 val used = try {
-                    setting.render(context, settingsX, settingsY, settingsW, mouseX, mouseY, partialTick, hovered)
+                    when (setting) {
+                        is GenericSetting -> setting.render(context, settingsX, settingsY, settingsW, mouseX, mouseY, partialTick, hovered)
+                        is GroupHeaderSetting -> setting.render(context, settingsX, settingsY, settingsW, mouseX, mouseY, partialTick, hovered)
+                        else -> h
+                    }
                 } catch (_: Exception) {
-                    setting.height
+                    h
                 }
                 if (expandProgress < 1f) break
                 settingsY += used
@@ -173,10 +215,15 @@ class ModuleCard(val module: ClientModule) {
             val settingsW = width - 16
             var settingsY = y + ClickGuiTheme.cardHeight + 4
             for (setting in settings) {
-                if (mouseX in settingsX..(settingsX + settingsW) && mouseY in settingsY..(settingsY + setting.height)) {
+                val h = when (setting) {
+                    is GenericSetting -> setting.height
+                    is GroupHeaderSetting -> setting.height
+                    else -> { settingsY += 0; continue }
+                }
+                if (setting is GenericSetting && mouseX in settingsX..(settingsX + settingsW) && mouseY in settingsY..(settingsY + h)) {
                     if (setting.mouseClicked(mouseX, mouseY, button)) return true
                 }
-                settingsY += setting.height
+                settingsY += h
             }
         }
         return false
@@ -189,10 +236,15 @@ class ModuleCard(val module: ClientModule) {
         val settingsW = width - 16
         var settingsY = y + ClickGuiTheme.cardHeight + 4
         for (setting in settings) {
-            if (mouseX in settingsX..(settingsX + settingsW) && mouseY in settingsY..(settingsY + setting.height)) {
+            val h = when (setting) {
+                is GenericSetting -> setting.height
+                is GroupHeaderSetting -> setting.height
+                else -> continue
+            }
+            if (setting is GenericSetting && mouseX in settingsX..(settingsX + settingsW) && mouseY in settingsY..(settingsY + h)) {
                 if (setting.mouseReleased(mouseX, mouseY, button)) return true
             }
-            settingsY += setting.height
+            settingsY += h
         }
         return false
     }
@@ -204,10 +256,15 @@ class ModuleCard(val module: ClientModule) {
         val settingsW = width - 16
         var settingsY = y + ClickGuiTheme.cardHeight + 4
         for (setting in settings) {
-            if (mouseX in settingsX..(settingsX + settingsW) && mouseY in settingsY..(settingsY + setting.height)) {
+            val h = when (setting) {
+                is GenericSetting -> setting.height
+                is GroupHeaderSetting -> setting.height
+                else -> continue
+            }
+            if (setting is GenericSetting && mouseX in settingsX..(settingsX + settingsW) && mouseY in settingsY..(settingsY + h)) {
                 if (setting.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true
             }
-            settingsY += setting.height
+            settingsY += h
         }
         return false
     }
@@ -215,7 +272,7 @@ class ModuleCard(val module: ClientModule) {
     fun handleKeyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
         if (!expanded) return false
         for (setting in settings) {
-            if (setting.keyPressed(keyCode, scanCode, modifiers)) return true
+            if (setting is GenericSetting && setting.keyPressed(keyCode, scanCode, modifiers)) return true
         }
         return false
     }
@@ -223,7 +280,7 @@ class ModuleCard(val module: ClientModule) {
     fun handleCharTyped(codePoint: Char, modifiers: Int): Boolean {
         if (!expanded) return false
         for (setting in settings) {
-            if (setting.charTyped(codePoint, modifiers)) return true
+            if (setting is GenericSetting && setting.charTyped(codePoint, modifiers)) return true
         }
         return false
     }
@@ -231,28 +288,4 @@ class ModuleCard(val module: ClientModule) {
     fun description(): String = runCatching { module.description.get() }.getOrNull().orEmpty()
 
     fun aliases(): List<String> = module.aliases
-
-    companion object {
-        fun collectRenderableValues(module: ClientModule): List<Value<*>> {
-            val out = mutableListOf<Value<*>>()
-            fun walk(parent: Iterable<Value<*>>) {
-                for (v in parent) {
-                    if (v.doNotInclude.asBoolean) continue
-                    if (v.notAnOption) continue
-                    if (v.name.equals("Bind", ignoreCase = true)) continue
-                    if (v.name.equals("Hidden", ignoreCase = true)) continue
-                    if (v is ModeValueGroup<*>) {
-                        out.add(v)
-                        walk(v.modes)
-                    } else if (v is ValueGroup) {
-                        continue
-                    } else {
-                        out.add(v)
-                    }
-                }
-            }
-            walk((module as Value<*>).inner as Iterable<Value<*>>)
-            return out
-        }
-    }
 }

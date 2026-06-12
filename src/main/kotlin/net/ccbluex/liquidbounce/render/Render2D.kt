@@ -215,10 +215,10 @@ fun GuiGraphicsExtractor.drawRoundedRect(
     outlineColor: Color4b? = Color4b.TRANSPARENT,
     outlineWidth: Float = 1.0f,
 ) {
-    val x11 = minOf(x1, x2)
-    val y11 = minOf(y1, y2)
-    val x21 = maxOf(x1, x2)
-    val y21 = maxOf(y1, y2)
+    val x11 = minOf(x1, x2).toInt()
+    val y11 = minOf(y1, y2).toInt()
+    val x21 = maxOf(x1, x2).toInt()
+    val y21 = maxOf(y1, y2).toInt()
 
     val fill = fillColor ?: Color4b.TRANSPARENT
     val outline = outlineColor ?: Color4b.TRANSPARENT
@@ -226,21 +226,16 @@ fun GuiGraphicsExtractor.drawRoundedRect(
         return
     }
 
-    this.guiRenderState.addGuiElement(
-        RoundedRectGuiElementRenderState(
-            x11,
-            y11,
-            x21,
-            y21,
-            radius.coerceAtLeast(0.0f),
-            fill.argb,
-            outline.argb,
-            outlineWidth.coerceAtLeast(0.0f),
-            copyPosePooled(),
-            this.scissorStack.peek(),
-            getBounds(x11, y11, x21, y21),
-        )
-    )
+    if (!fill.isTransparent) {
+        this.fill(x11, y11, x21, y21, fill.argb)
+    }
+    if (!outline.isTransparent && outlineWidth > 0.0f) {
+        val ow = outlineWidth.toInt().coerceAtLeast(1)
+        this.fill(x11, y11, x21, y11 + ow, outline.argb)
+        this.fill(x11, y21 - ow, x21, y21, outline.argb)
+        this.fill(x11, y11, x11 + ow, y21, outline.argb)
+        this.fill(x21 - ow, y11, x21, y21, outline.argb)
+    }
 }
 
 inline fun GuiGraphicsExtractor.drawQuadXYWH(

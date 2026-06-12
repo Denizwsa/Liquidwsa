@@ -53,7 +53,7 @@ fun createSetting(value: Value<*>): GenericSetting? {
             ValueType.INT -> IntSetting(value)
             ValueType.FLOAT -> FloatSetting(value)
             ValueType.INT_RANGE -> IntRangeSetting(value)
-            ValueType.FLOAT_RANGE -> fallback(value)
+            ValueType.FLOAT_RANGE -> FloatRangeSetting(value)
             else -> fallback(value)
         }
         else -> when (value.valueType) {
@@ -254,7 +254,9 @@ class IntSetting(override val value: RangedValue<*>) : GenericSetting() {
 }
 
 class IntRangeSetting(override val value: RangedValue<*>) : GenericSetting() {
-    override val height: Int = ROW_HEIGHT
+    override val height: Int = ROW_HEIGHT + SLIDER_HEIGHT + 4
+    private var draggingMin = false
+    private var draggingMax = false
     private var rowX: Int = 0
     private var rowW: Int = 0
 
@@ -283,34 +285,112 @@ class IntRangeSetting(override val value: RangedValue<*>) : GenericSetting() {
         drawTextClipped(
             context, displayName, x + 6, y + (ROW_HEIGHT - 8) / 2,
             if (hovered) ClickGuiTheme.textPrimary else ClickGuiTheme.textSecondary,
-            width - 70
+            width - 80
         )
         val range = typed.get()
         val text = "${range.first} - ${range.last}"
         val tw = mc.font.width(text)
         context.text(mc.font, text, x + width - tw - 6, y + (ROW_HEIGHT - 8) / 2,
             ClickGuiTheme.textPrimary.argb, true)
-        return ROW_HEIGHT
+
+        val trackX = x + 6
+        val trackW = width - 12
+        val trackY = y + ROW_HEIGHT + 2
+        context.drawRoundedRect(
+            trackX.toFloat(), trackY.toFloat(),
+            (trackX + trackW).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+            (SLIDER_HEIGHT / 2f),
+            fillColor = ClickGuiTheme.sliderBg,
+        )
+
+        val span = (rangeMax() - rangeMin()).coerceAtLeast(1)
+        val minRatio = ((range.first - rangeMin()).toFloat() / span).coerceIn(0f, 1f)
+        val maxRatio = ((range.last - rangeMin()).toFloat() / span).coerceIn(0f, 1f)
+        val fillStart = (trackW * minRatio).toInt().coerceAtLeast(0)
+        val fillEnd = (trackW * maxRatio).toInt().coerceAtMost(trackW)
+        if (fillEnd > fillStart) {
+            context.drawRoundedRect(
+                (trackX + fillStart).toFloat(), trackY.toFloat(),
+                (trackX + fillEnd).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+                (SLIDER_HEIGHT / 2f),
+                fillColor = ClickGuiTheme.sliderFill,
+            )
+        }
+
+        val knobRadius = SLIDER_KNOB / 2f
+        val minKnobX = trackX + fillStart - knobRadius
+        val maxKnobX = trackX + fillEnd - knobRadius
+        val knobY = trackY - (SLIDER_KNOB - SLIDER_HEIGHT) / 2f
+        context.drawRoundedRect(
+            minKnobX, knobY, minKnobX + SLIDER_KNOB, knobY + SLIDER_KNOB,
+            knobRadius, fillColor = ClickGuiTheme.sliderKnob,
+        )
+        context.drawRoundedRect(
+            maxKnobX, knobY, maxKnobX + SLIDER_KNOB, knobY + SLIDER_KNOB,
+            knobRadius, fillColor = ClickGuiTheme.sliderKnob,
+        )
+
+        return height
     }
 
     override fun mouseClicked(mouseX: Int, mouseY: Int, button: Int): Boolean {
+        if (button != 0) return false
+        val trackX = rowX + 6
+        val trackW = rowW - 12
+        val span = (rangeMax() - rangeMin()).coerceAtLeast(1)
         val range = typed.get()
-        val delta = when (button) {
-            0 -> 1
-            1 -> -1
-            else -> return false
+        val minRatio = ((range.first - rangeMin()).toFloat() / span).coerceIn(0f, 1f)
+        val maxRatio = ((range.last - rangeMin()).toFloat() / span).coerceIn(0f, 1f)
+        val minKnobX = trackX + (trackW * minRatio).toInt()
+        val maxKnobX = trackX + (trackW * maxRatio).toInt()
+
+        if (kotlin.math.abs(mouseX - minKnobX) <= SLIDER_KNOB) {
+            draggingMin = true
+            return true
         }
-        val mid = rowX + rowW / 2
-        val curMin = range.first
-        val curMax = range.last
-        val (newMin, newMax) = if (mouseX < mid) {
-            curMin + delta to curMax
+        if (kotlin.math.abs(mouseX - maxKnobX) <= SLIDER_KNOB) {
+            draggingMax = true
+            return true
+        }
+        val ratio = ((mouseX - trackX).toFloat() / trackW).coerceIn(0f, 1f)
+        val newVal = rangeMin() + (ratio * span).toInt()
+        val mid = trackX + trackW / 2
+        if (mouseX < mid) {
+            val clamped = newVal.coerceIn(rangeMin(), range.last)
+            typed.set(clamped..range.last)
+            draggingMin = true
         } else {
-            curMin to curMax + delta
+            val clamped = newVal.coerceIn(range.first, rangeMax())
+            typed.set(range.first..clamped)
+            draggingMax = true
         }
-        val clampedMin = newMin.coerceIn(rangeMin(), curMax)
-        val clampedMax = newMax.coerceIn(curMin, rangeMax())
-        typed.set(clampedMin..clampedMax)
+        return true
+    }
+
+    override fun mouseReleased(mouseX: Int, mouseY: Int, button: Int): Boolean {
+        if (button == 0 && (draggingMin || draggingMax)) {
+            draggingMin = false
+            draggingMax = false
+            return true
+        }
+        return false
+    }
+
+    override fun mouseDragged(mouseX: Int, mouseY: Int, button: Int, dragX: Double, dragY: Double): Boolean {
+        if (!draggingMin && !draggingMax) return false
+        val trackX = rowX + 6
+        val trackW = rowW - 12
+        val span = (rangeMax() - rangeMin()).coerceAtLeast(1)
+        val ratio = ((mouseX - trackX).toFloat() / trackW).coerceIn(0f, 1f)
+        val newVal = rangeMin() + (ratio * span).toInt()
+        val range = typed.get()
+        if (draggingMin) {
+            val clamped = newVal.coerceIn(rangeMin(), range.last)
+            if (clamped != range.first) typed.set(clamped..range.last)
+        } else {
+            val clamped = newVal.coerceIn(range.first, rangeMax())
+            if (clamped != range.last) typed.set(range.first..clamped)
+        }
         return true
     }
 }
@@ -410,6 +490,148 @@ class FloatSetting(override val value: RangedValue<*>) : GenericSetting() {
             return true
         }
         return false
+    }
+}
+
+class FloatRangeSetting(override val value: RangedValue<*>) : GenericSetting() {
+    override val height: Int = ROW_HEIGHT + SLIDER_HEIGHT + 4
+    private var draggingMin = false
+    private var draggingMax = false
+    private var rowX: Int = 0
+    private var rowW: Int = 0
+
+    @Suppress("UNCHECKED_CAST")
+    private val typed: RangedValue<ClosedFloatingPointRange<Float>>
+        get() = value as RangedValue<ClosedFloatingPointRange<Float>>
+
+    private fun rangeMin(): Float = (value.range as ClosedFloatingPointRange<Float>).start
+    private fun rangeMax(): Float = (value.range as ClosedFloatingPointRange<Float>).endInclusive
+
+    override fun render(
+        context: GuiGraphicsExtractor,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
+        partialTick: Float,
+        hovered: Boolean,
+    ): Int {
+        rowX = x
+        rowW = width
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + ROW_HEIGHT).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.bgCard,
+        )
+        drawTextClipped(
+            context, displayName, x + 6, y + (ROW_HEIGHT - 8) / 2,
+            if (hovered) ClickGuiTheme.textPrimary else ClickGuiTheme.textSecondary,
+            width - 90
+        )
+        val range = typed.get()
+        val text = String.format("%.1f - %.1f", range.start, range.endInclusive)
+        val tw = mc.font.width(text)
+        context.text(mc.font, text, x + width - tw - 6, y + (ROW_HEIGHT - 8) / 2,
+            ClickGuiTheme.textPrimary.argb, true)
+
+        val trackX = x + 6
+        val trackW = width - 12
+        val trackY = y + ROW_HEIGHT + 2
+        context.drawRoundedRect(
+            trackX.toFloat(), trackY.toFloat(),
+            (trackX + trackW).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+            (SLIDER_HEIGHT / 2f),
+            fillColor = ClickGuiTheme.sliderBg,
+        )
+
+        val span = (rangeMax() - rangeMin()).coerceAtLeast(0.001f)
+        val minRatio = ((range.start - rangeMin()) / span).coerceIn(0f, 1f)
+        val maxRatio = ((range.endInclusive - rangeMin()) / span).coerceIn(0f, 1f)
+        val fillStart = (trackW * minRatio).toInt().coerceAtLeast(0)
+        val fillEnd = (trackW * maxRatio).toInt().coerceAtMost(trackW)
+        if (fillEnd > fillStart) {
+            context.drawRoundedRect(
+                (trackX + fillStart).toFloat(), trackY.toFloat(),
+                (trackX + fillEnd).toFloat(), (trackY + SLIDER_HEIGHT).toFloat(),
+                (SLIDER_HEIGHT / 2f),
+                fillColor = ClickGuiTheme.sliderFill,
+            )
+        }
+
+        val knobRadius = SLIDER_KNOB / 2f
+        val minKnobX = trackX + fillStart - knobRadius
+        val maxKnobX = trackX + fillEnd - knobRadius
+        val knobY = trackY - (SLIDER_KNOB - SLIDER_HEIGHT) / 2f
+        context.drawRoundedRect(
+            minKnobX, knobY, minKnobX + SLIDER_KNOB, knobY + SLIDER_KNOB,
+            knobRadius, fillColor = ClickGuiTheme.sliderKnob,
+        )
+        context.drawRoundedRect(
+            maxKnobX, knobY, maxKnobX + SLIDER_KNOB, knobY + SLIDER_KNOB,
+            knobRadius, fillColor = ClickGuiTheme.sliderKnob,
+        )
+
+        return height
+    }
+
+    override fun mouseClicked(mouseX: Int, mouseY: Int, button: Int): Boolean {
+        if (button != 0) return false
+        val trackX = rowX + 6
+        val trackW = rowW - 12
+        val span = (rangeMax() - rangeMin()).coerceAtLeast(0.001f)
+        val range = typed.get()
+        val minRatio = ((range.start - rangeMin()) / span).coerceIn(0f, 1f)
+        val maxRatio = ((range.endInclusive - rangeMin()) / span).coerceIn(0f, 1f)
+        val minKnobX = trackX + (trackW * minRatio).toInt()
+        val maxKnobX = trackX + (trackW * maxRatio).toInt()
+
+        if (kotlin.math.abs(mouseX - minKnobX) <= SLIDER_KNOB) {
+            draggingMin = true
+            return true
+        }
+        if (kotlin.math.abs(mouseX - maxKnobX) <= SLIDER_KNOB) {
+            draggingMax = true
+            return true
+        }
+        val ratio = ((mouseX - trackX).toFloat() / trackW).coerceIn(0f, 1f)
+        val newVal = rangeMin() + ratio * span
+        val mid = trackX + trackW / 2
+        if (mouseX < mid) {
+            val clamped = newVal.coerceIn(rangeMin(), range.endInclusive)
+            typed.set(clamped..range.endInclusive)
+            draggingMin = true
+        } else {
+            val clamped = newVal.coerceIn(range.start, rangeMax())
+            typed.set(range.start..clamped)
+            draggingMax = true
+        }
+        return true
+    }
+
+    override fun mouseReleased(mouseX: Int, mouseY: Int, button: Int): Boolean {
+        if (button == 0 && (draggingMin || draggingMax)) {
+            draggingMin = false
+            draggingMax = false
+            return true
+        }
+        return false
+    }
+
+    override fun mouseDragged(mouseX: Int, mouseY: Int, button: Int, dragX: Double, dragY: Double): Boolean {
+        if (!draggingMin && !draggingMax) return false
+        val trackX = rowX + 6
+        val trackW = rowW - 12
+        val span = (rangeMax() - rangeMin()).coerceAtLeast(0.001f)
+        val ratio = ((mouseX - trackX).toFloat() / trackW).coerceIn(0f, 1f)
+        val newVal = rangeMin() + ratio * span
+        val range = typed.get()
+        if (draggingMin) {
+            val clamped = newVal.coerceIn(rangeMin(), range.endInclusive)
+            if (clamped != range.start) typed.set(clamped..range.endInclusive)
+        } else {
+            val clamped = newVal.coerceIn(range.start, rangeMax())
+            if (clamped != range.endInclusive) typed.set(range.start..clamped)
+        }
+        return true
     }
 }
 
@@ -776,5 +998,34 @@ class TextSetting(override val value: Value<String>) : GenericSetting() {
         drawTextClipped(context, text, x + 6, y + (ROW_HEIGHT - 8) / 2,
             ClickGuiTheme.textDimmed, width - 12)
         return ROW_HEIGHT
+    }
+}
+
+class GroupHeaderSetting(val groupName: String) : GenericSetting() {
+    override val value: Value<*>
+        get() = throw UnsupportedOperationException("GroupHeaderSetting has no backing value")
+    override val height: Int = 18
+
+    override fun render(
+        context: GuiGraphicsExtractor,
+        x: Int, y: Int, width: Int,
+        mouseX: Int, mouseY: Int,
+        partialTick: Float,
+        hovered: Boolean,
+    ): Int {
+        context.drawRoundedRect(
+            x.toFloat(), y.toFloat(),
+            (x + width).toFloat(), (y + 14).toFloat(),
+            4f,
+            fillColor = ClickGuiTheme.accentGlow,
+            outlineColor = ClickGuiTheme.borderAccent,
+            outlineWidth = 0.5f,
+        )
+        context.text(
+            mc.font, spacedName(groupName),
+            x + 6, y + 3,
+            ClickGuiTheme.accent.argb, true,
+        )
+        return 18
     }
 }

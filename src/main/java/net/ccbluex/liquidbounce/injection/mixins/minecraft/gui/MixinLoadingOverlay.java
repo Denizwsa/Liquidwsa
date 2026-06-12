@@ -51,6 +51,22 @@ public abstract class MixinLoadingOverlay {
     @Unique
     private static final IntSupplier CLIENT_ARGB = () -> ARGB.color(255, 24, 26, 27);
 
+    @Unique
+    private static Boolean isVulkan = null;
+
+    @Unique
+    private static boolean checkVulkan() {
+        if (isVulkan == null) {
+            try {
+                Class.forName("net.vulkanmod.vulkan.VulkanRenderer");
+                isVulkan = true;
+            } catch (ClassNotFoundException e) {
+                isVulkan = false;
+            }
+        }
+        return isVulkan;
+    }
+
     @Inject(method = "registerTextures", at = @At("RETURN"))
     private static void initializeTexture(TextureManager textureManager, CallbackInfo ci) {
         textureManager.registerAndLoad(ClientLogoTexture.CLIENT_LOGO, new ClientLogoTexture());
@@ -92,21 +108,23 @@ public abstract class MixinLoadingOverlay {
         int y = (screenHeight - displayHeight) / 2;
 
         // TODO: Draw as SVG instead of PNG
-        graphics.blit(
-            ClientRenderPipelines.JCEF.SMOOTH_TEXTURE,
-                ClientLogoTexture.CLIENT_LOGO,
-                x,
-                y,
-                0.0F,
-                0.0F,
-                displayWidth,
-                displayHeight,
-                ClientLogoTexture.WIDTH,
-                ClientLogoTexture.HEIGHT,
-                ClientLogoTexture.WIDTH,
-                ClientLogoTexture.HEIGHT,
-                color
-        );
+        if (!checkVulkan()) {
+            graphics.blit(
+                ClientRenderPipelines.JCEF.SMOOTH_TEXTURE,
+                    ClientLogoTexture.CLIENT_LOGO,
+                    x,
+                    y,
+                    0.0F,
+                    0.0F,
+                    displayWidth,
+                    displayHeight,
+                    ClientLogoTexture.WIDTH,
+                    ClientLogoTexture.HEIGHT,
+                    ClientLogoTexture.WIDTH,
+                    ClientLogoTexture.HEIGHT,
+                    color
+            );
+        }
     }
 
     @ModifyExpressionValue(method = "extractRenderState", at = @At(value = "FIELD", target = "Lnet/minecraft/client/gui/screens/LoadingOverlay;BRAND_BACKGROUND:Ljava/util/function/IntSupplier;", opcode = Opcodes.GETSTATIC))
