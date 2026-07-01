@@ -17,18 +17,17 @@
             "a b"
             "a c";
     grid-template-columns: max-content 1fr;
-    column-gap: 10px;
+    column-gap: 8px;
     background: var(--notification-background-color);
     border-radius: 5px;
-    width: 300px;
+    width: 260px;
     overflow: hidden;
-    padding: 10px;
-    margin-bottom: 10px;
+    padding: 8px;
   }
 
   .icon {
-    height: 40px;
-    width: 40px;
+    height: 36px;
+    width: 36px;
     background-position: center;
     background-repeat: no-repeat;
     border-radius: 4px;
@@ -57,8 +56,8 @@
       &::after {
         content: "";
         position: absolute;
-        height: 10px;
-        width: 10px;
+        height: 9px;
+        width: 9px;
         border-radius: 5px;
         top: 50%;
         transform: translate(-50%, -50%);
@@ -86,14 +85,22 @@
 
   .title {
     grid-area: b;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--notification-title-color);
     font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .message {
     grid-area: c;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--notification-message-color);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

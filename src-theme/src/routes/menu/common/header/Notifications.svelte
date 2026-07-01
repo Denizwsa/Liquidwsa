@@ -60,32 +60,42 @@
         "a c";
     grid-template-columns: max-content 1fr;
     overflow: hidden;
-    padding-right: 10px;
-    min-width: 350px;
+    padding-right: 8px;
+    min-width: 280px;
+    max-width: 360px;
 
     .title {
       color: var(--menu-text-color);
       font-weight: 600;
-      font-size: 18px;
+      font-size: 15px;
       grid-area: b;
       align-self: flex-end;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .message {
       color: var(--menu-text-dimmed-color);
       font-weight: 500;
+      font-size: 12px;
       grid-area: c;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .icon {
       grid-area: a;
-      height: 65px;
-      width: 65px;
+      height: 52px;
+      width: 52px;
       background-color: var(--menu-header-notification-icon-background-color);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-right: 10px;
+      margin-right: 8px;
 
       &.error {
         background-color: var(--menu-header-notification-icon-error-background-color);
